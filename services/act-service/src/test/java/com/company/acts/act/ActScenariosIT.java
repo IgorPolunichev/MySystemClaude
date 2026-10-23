@@ -154,7 +154,7 @@ class ActScenariosIT extends PostgresIntegrationTest {
 
         login("admin-" + author, "ADMIN");
         assertThatThrownBy(() -> header(closed, new BigDecimal("1300"), "Правка", null))
-                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("закрытого");
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("закрытый акт");
         ActDetail fixed = header(closed, new BigDecimal("1300"), "ТО-2000 (исправлено)", "Опечатка в моточасах");
         assertThat(fixed.meterHours()).isEqualByComparingTo("1300");
         assertThatThrownBy(() -> acts.reopen(fixed.id(), " ")).isInstanceOf(BusinessRuleException.class);
