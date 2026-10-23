@@ -1,0 +1,1351 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — акты выполненных работ (act-service)
+  version: 1.0.0
+  description: 'Жизненный цикл акта: черновик → открыт (номер АВР-ГГГГ-NNNNNN) → закрыт; аннулирование. Табель «инженер × день», запчасти, участники,
+    журнал. Права текущего пользователя возвращаются в карточке (permissions).'
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/acts:
+    get:
+      operationId: listActs
+      tags:
+      - acts
+      summary: Реестр актов
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Номер, краткое описание, организация, техника, инженеры
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActStatus'
+        style: form
+        explode: true
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Организация
+      - name: equipmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Техника
+      - name: engineerId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Инженер-участник
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+        description: Период работ с
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+        description: Период работ по
+      - name: mine
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Только акты, где я участвую
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+        description: number, createdAt, periodStart, organizationName, shortDescription, totalHours, status; «-» — по убыванию; по умолчанию -createdAt
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActSummaryPage'
+    post:
+      operationId: createAct
+      tags:
+      - acts
+      summary: Создать черновик; автор — ответственный инженер
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActCreate'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/short-descriptions:
+    get:
+      operationId: listShortDescriptions
+      tags:
+      - acts
+      summary: Ранее использованные краткие описания (автодополнение)
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Начало текста
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+  /api/v1/acts/{id}:
+    get:
+      operationId: getAct
+      tags:
+      - acts
+      summary: Карточка акта
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateAct
+      tags:
+      - acts
+      summary: Изменить шапку и описания
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActHeaderInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteAct
+      tags:
+      - acts
+      summary: Удалить черновик
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/open:
+    post:
+      operationId: openAct
+      tags:
+      - acts
+      summary: 'Открыть: присвоить номер'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/close:
+    post:
+      operationId: closeAct
+      tags:
+      - acts
+      summary: Закрыть
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/reopen:
+    post:
+      operationId: reopenAct
+      tags:
+      - acts
+      summary: Вернуть закрытый акт в работу (администратор)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentInput'
+  /api/v1/acts/{id}/cancel:
+    post:
+      operationId: cancelAct
+      tags:
+      - acts
+      summary: Аннулировать
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentInput'
+  /api/v1/acts/{id}/copy:
+    post:
+      operationId: copyAct
+      tags:
+      - acts
+      summary: Создать новый черновик на основе акта
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/history:
+    get:
+      operationId: getActHistory
+      tags:
+      - acts
+      summary: Журнал изменений
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryEntry'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/engineers:
+    post:
+      operationId: addActEngineer
+      tags:
+      - act-content
+      summary: Добавить инженера в акт
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddEngineerInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/engineers/{engineerId}:
+    delete:
+      operationId: removeActEngineer
+      tags:
+      - act-content
+      summary: Убрать инженера из акта
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: engineerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/acts/{id}/time/{engineerId}/{date}:
+    put:
+      operationId: putActTime
+      tags:
+      - act-content
+      summary: Записать часы инженера за день
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: engineerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeEntryInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntryResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteActTime
+      tags:
+      - act-content
+      summary: Удалить часы инженера за день
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: engineerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/parts:
+    post:
+      operationId: addActPart
+      tags:
+      - act-content
+      summary: Добавить запчасть
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartLineInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/parts/{lineId}:
+    put:
+      operationId: updateActPart
+      tags:
+      - act-content
+      summary: Изменить запчасть
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartLineInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteActPart
+      tags:
+      - act-content
+      summary: Удалить запчасть
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: lineId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ActStatus:
+      type: string
+      enum:
+      - DRAFT
+      - OPEN
+      - CLOSED
+      - CANCELLED
+      description: Черновик, открыт, закрыт, аннулирован
+    MeterType:
+      type: string
+      enum:
+      - HOURS
+      - KM
+      - BOTH
+    ParticipantRole:
+      type: string
+      enum:
+      - LEAD
+      - MEMBER
+    PartSource:
+      type: string
+      enum:
+      - CATALOG
+      - MANUAL
+      - WAREHOUSE
+    ActSummary:
+      type: object
+      required:
+      - id
+      - status
+      - totalHours
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/ActStatus'
+        organizationName:
+          type:
+          - string
+          - 'null'
+        departmentName:
+          type:
+          - string
+          - 'null'
+        equipmentTitle:
+          type:
+          - string
+          - 'null'
+        equipmentNumbers:
+          type:
+          - string
+          - 'null'
+        shortDescription:
+          type:
+          - string
+          - 'null'
+        periodStart:
+          type:
+          - string
+          - 'null'
+          format: date
+        periodEnd:
+          type:
+          - string
+          - 'null'
+          format: date
+        totalHours:
+          type: number
+        engineerNames:
+          type:
+          - string
+          - 'null'
+        createdAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        updatedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    ActSummaryPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActSummary'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    ActOrganization:
+      type:
+      - object
+      - 'null'
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        shortName:
+          type:
+          - string
+          - 'null'
+        inn:
+          type:
+          - string
+          - 'null'
+        kpp:
+          type:
+          - string
+          - 'null'
+        legalAddress:
+          type:
+          - string
+          - 'null'
+        departmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        departmentName:
+          type:
+          - string
+          - 'null'
+    ActEquipment:
+      type:
+      - object
+      - 'null'
+      required:
+      - id
+      - brand
+      - model
+      - meterType
+      properties:
+        id:
+          type: string
+          format: uuid
+        typeName:
+          type:
+          - string
+          - 'null'
+        brand:
+          type: string
+        model:
+          type: string
+        serialNumber:
+          type:
+          - string
+          - 'null'
+        garageNumber:
+          type:
+          - string
+          - 'null'
+        plateNumber:
+          type:
+          - string
+          - 'null'
+        meterType:
+          $ref: '#/components/schemas/MeterType'
+    ActParticipant:
+      type: object
+      required:
+      - engineerId
+      - fullName
+      - role
+      - totalHours
+      - isCurrentUser
+      properties:
+        engineerId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        position:
+          type:
+          - string
+          - 'null'
+        role:
+          $ref: '#/components/schemas/ParticipantRole'
+        totalHours:
+          type: number
+        isCurrentUser:
+          type: boolean
+    ActTimeEntry:
+      type: object
+      required:
+      - id
+      - engineerId
+      - workDate
+      - hours
+      properties:
+        id:
+          type: string
+          format: uuid
+        engineerId:
+          type: string
+          format: uuid
+        workDate:
+          type: string
+          format: date
+        hours:
+          type: number
+        travelHours:
+          type:
+          - number
+          - 'null'
+        comment:
+          type:
+          - string
+          - 'null'
+    ActPartLine:
+      type: object
+      required:
+      - id
+      - position
+      - source
+      - name
+      - quantity
+      - unitCode
+      - unitName
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        source:
+          $ref: '#/components/schemas/PartSource'
+        catalogItemId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        name:
+          type: string
+        catalogNumber:
+          type:
+          - string
+          - 'null'
+        quantity:
+          type: number
+        unitCode:
+          type: string
+        unitName:
+          type: string
+        notes:
+          type:
+          - string
+          - 'null'
+    ActPermissions:
+      type: object
+      required:
+      - canEdit
+      - canEditAnyTime
+      - canOpen
+      - canClose
+      - canReopen
+      - canCancel
+      - canDelete
+      - requiresAdminComment
+      properties:
+        canEdit:
+          type: boolean
+        canEditAnyTime:
+          type: boolean
+        canOpen:
+          type: boolean
+        canClose:
+          type: boolean
+        canReopen:
+          type: boolean
+        canCancel:
+          type: boolean
+        canDelete:
+          type: boolean
+        requiresAdminComment:
+          type: boolean
+    ActDetail:
+      type: object
+      required:
+      - id
+      - version
+      - status
+      - periodOverridden
+      - calendarDays
+      - workedDays
+      - hideRequisites
+      - hideTravelTime
+      - authorEngineerId
+      - engineers
+      - timeEntries
+      - parts
+      - totalHours
+      - totalTravelHours
+      - missingForClose
+      - permissions
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          format: int64
+        number:
+          type:
+          - string
+          - 'null'
+        status:
+          $ref: '#/components/schemas/ActStatus'
+        organization:
+          $ref: '#/components/schemas/ActOrganization'
+        equipment:
+          $ref: '#/components/schemas/ActEquipment'
+        meterHours:
+          type:
+          - number
+          - 'null'
+        meterKm:
+          type:
+          - number
+          - 'null'
+        location:
+          type:
+          - string
+          - 'null'
+        workStartDate:
+          type:
+          - string
+          - 'null'
+          format: date
+        workEndDate:
+          type:
+          - string
+          - 'null'
+          format: date
+        periodOverridden:
+          type: boolean
+        calendarDays:
+          type: integer
+        workedDays:
+          type: integer
+        shortDescription:
+          type:
+          - string
+          - 'null'
+        detailedDescription:
+          type:
+          - string
+          - 'null'
+        recommendations:
+          type:
+          - string
+          - 'null'
+        customerRepName:
+          type:
+          - string
+          - 'null'
+        customerRepPosition:
+          type:
+          - string
+          - 'null'
+        hideRequisites:
+          type: boolean
+        hideTravelTime:
+          type: boolean
+        authorEngineerId:
+          type: string
+          format: uuid
+        createdAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        updatedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        closedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        closedBy:
+          type:
+          - string
+          - 'null'
+        engineers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActParticipant'
+        timeEntries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActTimeEntry'
+        parts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActPartLine'
+        totalHours:
+          type: number
+        totalTravelHours:
+          type: number
+        missingForClose:
+          type: array
+          items:
+            type: string
+          description: Что не заполнено для закрытия
+        permissions:
+          $ref: '#/components/schemas/ActPermissions'
+    ActCreate:
+      type: object
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: UUID v7 клиента для идемпотентности
+        equipmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    ActHeaderInput:
+      type: object
+      required:
+      - version
+      properties:
+        version:
+          type: integer
+          format: int64
+        equipmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        meterHours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        meterKm:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        location:
+          type:
+          - string
+          - 'null'
+          maxLength: 300
+        workStartDate:
+          type:
+          - string
+          - 'null'
+          format: date
+          description: Ручная дата начала; по умолчанию — по табелю
+        workEndDate:
+          type:
+          - string
+          - 'null'
+          format: date
+        shortDescription:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        detailedDescription:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        recommendations:
+          type:
+          - string
+          - 'null'
+          maxLength: 10000
+        customerRepName:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+        customerRepPosition:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+        hideRequisites:
+          type:
+          - boolean
+          - 'null'
+        hideTravelTime:
+          type:
+          - boolean
+          - 'null'
+        adminComment:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+          description: Обязательно при изменении закрытого акта
+    CommentInput:
+      type: object
+      properties:
+        comment:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+    AddEngineerInput:
+      type: object
+      required:
+      - engineerId
+      properties:
+        engineerId:
+          type: string
+          format: uuid
+    TimeEntryInput:
+      type: object
+      properties:
+        hours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          maximum: 24
+          multipleOf: 0.25
+        travelHours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          maximum: 24
+          multipleOf: 0.25
+        comment:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+    TimeEntryResult:
+      type: object
+      required:
+      - act
+      properties:
+        act:
+          $ref: '#/components/schemas/ActDetail'
+        warning:
+          type:
+          - string
+          - 'null'
+          description: Например, больше 12 ч за день
+    PartLineInput:
+      type: object
+      required:
+      - source
+      - name
+      - quantity
+      - unitCode
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        source:
+          $ref: '#/components/schemas/PartSource'
+        catalogItemId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        name:
+          type: string
+          maxLength: 300
+        catalogNumber:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        quantity:
+          type: number
+          exclusiveMinimum: 0
+        unitCode:
+          type: string
+        notes:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        addToCatalog:
+          type:
+          - boolean
+          - 'null'
+          description: 'Для MANUAL: добавить позицию в каталог'
+    HistoryEntry:
+      type: object
+      required:
+      - action
+      properties:
+        at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        user:
+          type:
+          - string
+          - 'null'
+        action:
+          type: string
+        details:
+          type:
+          - string
+          - 'null'
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы

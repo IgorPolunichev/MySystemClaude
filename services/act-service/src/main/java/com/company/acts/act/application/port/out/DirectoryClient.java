@@ -1,0 +1,32 @@
+package com.company.acts.act.application.port.out;
+
+import java.math.BigDecimal;
+import java.util.UUID;
+
+/** Справочники (directory-service): данные для снимков в акте и учётные записи инженеров. */
+public interface DirectoryClient {
+
+    record EquipmentInfo(UUID id, UUID organizationId, UUID departmentId, String departmentName,
+                         String equipmentTypeName, String brand, String model, String serialNumber,
+                         String garageNumber, String plateNumber, String meterType, BigDecimal currentHours,
+                         BigDecimal currentKm) {
+    }
+
+    record OrganizationInfo(UUID id, String name, String shortName, String inn, String kpp, String legalAddress) {
+    }
+
+    record EngineerInfo(UUID id, String keycloakUserId, String fullName, String position, boolean active) {
+    }
+
+    EquipmentInfo equipment(UUID id);
+
+    OrganizationInfo organization(UUID id);
+
+    EngineerInfo engineer(UUID id);
+
+    /** Карточка инженера текущего пользователя. */
+    EngineerInfo currentEngineer();
+
+    /** Поднять текущую наработку техники, если новые значения больше прежних. Ошибки не прерывают сценарий. */
+    void raiseMeter(UUID equipmentId, BigDecimal hours, BigDecimal km);
+}

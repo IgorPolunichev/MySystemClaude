@@ -1,0 +1,7 @@
+package com.company.acts.act.adapter.out.persistence;
+
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface WorkActJpaRepository extends JpaRepository<WorkActJpaEntity, UUID> {
+}
