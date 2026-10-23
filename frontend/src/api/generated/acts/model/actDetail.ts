@@ -10,6 +10,7 @@ import type { ActOrganization } from './actOrganization';
 import type { ActParticipant } from './actParticipant';
 import type { ActPartLine } from './actPartLine';
 import type { ActPermissions } from './actPermissions';
+import type { ActPhoto } from './actPhoto';
 import type { ActStatus } from './actStatus';
 import type { ActTimeEntry } from './actTimeEntry';
 
@@ -63,4 +64,5 @@ export interface ActDetail {
   /** Что не заполнено для закрытия */
   missingForClose: string[];
   permissions: ActPermissions;
+  photos: ActPhoto[];
 }

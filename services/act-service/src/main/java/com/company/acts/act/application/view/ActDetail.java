@@ -43,6 +43,7 @@ public record ActDetail(
         List<ParticipantView> engineers,
         List<TimeEntryView> timeEntries,
         List<PartLineView> parts,
+        List<PhotoView> photos,
         BigDecimal totalHours,
         BigDecimal totalTravelHours,
         List<String> missingForClose,
@@ -75,6 +76,10 @@ public record ActDetail(
     public record PartLineView(UUID id, int position, PartSource source, UUID catalogItemId, String name,
                                String catalogNumber, BigDecimal quantity, String unitCode, String unitName,
                                String notes) {
+    }
+
+    /** Фото техотчёта; файл — /api/v1/media/{mediaId}/content. */
+    public record PhotoView(UUID id, UUID mediaId, String caption, int position) {
     }
 
     /** Что можно текущему пользователю — интерфейс показывает только доступные действия. */

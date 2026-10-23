@@ -21,6 +21,8 @@ export const HISTORY_ACTIONS: Record<string, string> = {
   ENGINEER_REMOVED: 'Убран инженер',
   PART_ADDED: 'Добавлена запчасть',
   PART_REMOVED: 'Удалена запчасть',
+  PHOTO_ADDED: 'Добавлено фото',
+  PHOTO_REMOVED: 'Удалено фото',
 };
 
 const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });

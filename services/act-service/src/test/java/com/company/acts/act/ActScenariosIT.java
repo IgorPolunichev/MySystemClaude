@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.company.acts.act.application.ActContentService;
+import com.company.acts.act.application.ActPhotoService;
 import com.company.acts.act.application.ActService;
 import com.company.acts.act.application.command.ActCreateCommand;
 import com.company.acts.act.application.command.ActHeaderCommand;
@@ -63,6 +64,8 @@ class ActScenariosIT extends PostgresIntegrationTest {
     ActService acts;
     @Autowired
     ActContentService content;
+    @Autowired
+    ActPhotoService photos;
     @Autowired
     FakeDirectory directory;
     @Autowired
@@ -267,5 +270,35 @@ class ActScenariosIT extends PostgresIntegrationTest {
         login(user());
         assertThat(acts.searchMine(new ActSearchQuery(null, null, null, null, null, null, null, null),
                 PageQuery.of(0, 50, null)).items()).extracting(s -> s.id()).doesNotContain(opened.id());
+    }
+
+    @Test
+    void photosNeedCaptionsBeforeClosing() {
+        String author = user();
+        login(author);
+        ActDetail act = acts.open(acts.create(new ActCreateCommand(null, UUID.randomUUID())).id());
+        act = header(act, new BigDecimal("100"), "Диагностика", null);
+        content.putTime(act.id(), FakeDirectory.engineerId(author), DAY, work("09:00-12:00"));
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        photos.add(act.id(), first, "Течь масла из-под крышки клапанов");
+        ActDetail withPhotos = photos.add(act.id(), second, null);
+        assertThat(withPhotos.photos()).extracting(p -> p.position()).containsExactly(1, 2);
+        assertThat(withPhotos.missingForClose()).anyMatch(m -> m.contains("подписи к фото"));
+        UUID actId = act.id();
+        assertThatThrownBy(() -> acts.close(actId)).isInstanceOf(BusinessRuleException.class)
+                .hasMessageContaining("подписи к фото");
+
+        UUID secondPhoto = withPhotos.photos().get(1).id();
+        photos.caption(actId, secondPhoto, "Замена прокладки");
+        ActDetail reordered = photos.reorder(actId, List.of(secondPhoto, withPhotos.photos().get(0).id()));
+        assertThat(reordered.photos().get(0).caption()).isEqualTo("Замена прокладки");
+        assertThat(reordered.missingForClose()).isEmpty();
+        assertThatThrownBy(() -> photos.reorder(actId, List.of(secondPhoto)))
+                .isInstanceOf(BusinessRuleException.class);
+
+        assertThat(photos.add(actId, first, "дубль").photos()).hasSize(2);
+        assertThat(acts.close(actId).status()).isEqualTo(ActStatus.CLOSED);
+        assertThatThrownBy(() -> photos.delete(actId, secondPhoto)).isInstanceOf(AccessDeniedException.class);
     }
 }

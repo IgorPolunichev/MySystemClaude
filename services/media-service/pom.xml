@@ -23,6 +23,20 @@
             <artifactId>common-events</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.company.acts</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.company.acts</groupId>
+            <artifactId>common-persistence</artifactId>
+        </dependency>
+        <!-- S3-совместимое хранилище (RustFS). Версия 2.29.0 — до смены алгоритма контрольных сумм по умолчанию
+             в 2.30, с которой у S3-совместимых хранилищ бывают проблемы. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>

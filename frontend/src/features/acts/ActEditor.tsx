@@ -47,6 +47,7 @@ import { invalidateByPrefix } from '../../shared/lib/invalidate';
 import { HISTORY_ACTIONS, STATUS, formatDate, formatHours, formatPeriod } from './actMeta';
 import { HeaderForm } from './HeaderForm';
 import { PartsSection } from './PartsSection';
+import { PhotosSection } from './PhotosSection';
 import { Timesheet } from './Timesheet';
 
 const dateTime = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
@@ -339,6 +340,10 @@ export function ActEditor() {
           <span className="cell-muted">Позиций запчастей</span>
           <b>{act.parts.length}</b>
         </div>
+        <div>
+          <span className="cell-muted">Фото</span>
+          <b>{act.photos.length}</b>
+        </div>
       </div>
 
       {act.status === 'CLOSED' && (
@@ -376,6 +381,7 @@ export function ActEditor() {
         <HeaderForm key={`${act.id}:${act.version}`} act={act} />
         <Timesheet act={act} />
         <PartsSection act={act} />
+        <PhotosSection act={act} />
       </div>
     </section>
   );

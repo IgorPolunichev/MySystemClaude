@@ -14,6 +14,10 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
   mvc:
     problemdetails:
       enabled: true
@@ -32,6 +36,13 @@ server:
 
 app:
   version: "@project.version@"
+  storage:
+    # s3 — S3-совместимое хранилище (RustFS в Docker Compose); memory — в памяти, для тестов
+    type: ${STORAGE_TYPE:s3}
+    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    access-key: ${S3_ACCESS_KEY:acts}
+    secret-key: ${S3_SECRET_KEY:acts-secret}
+    bucket: ${S3_BUCKET:acts-media}
 
 info:
   app:

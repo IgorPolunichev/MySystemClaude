@@ -1,6 +1,7 @@
 package com.company.acts.act.adapter.in.web;
 
 import com.company.acts.act.application.ActContentService;
+import com.company.acts.act.application.ActPhotoService;
 import com.company.acts.act.application.ActService;
 import com.company.acts.act.application.command.ActCreateCommand;
 import com.company.acts.act.application.command.ActHeaderCommand;
@@ -41,12 +42,24 @@ class ActController {
     record AddEngineerRequest(@NotNull(message = "Выберите инженера") UUID engineerId) {
     }
 
+    record AddPhotoRequest(@NotNull(message = "Не указан файл фото") UUID mediaId,
+                           @jakarta.validation.constraints.Size(max = 200) String caption) {
+    }
+
+    record CaptionRequest(@jakarta.validation.constraints.Size(max = 200) String caption) {
+    }
+
+    record PhotoOrderRequest(@NotNull List<UUID> photoIds) {
+    }
+
     private final ActService acts;
     private final ActContentService content;
+    private final ActPhotoService photos;
 
-    ActController(ActService acts, ActContentService content) {
+    ActController(ActService acts, ActContentService content, ActPhotoService photos) {
         this.acts = acts;
         this.content = content;
+        this.photos = photos;
     }
 
     @GetMapping
@@ -162,5 +175,25 @@ class ActController {
     @DeleteMapping("/{id}/parts/{lineId}")
     ActDetail deletePart(@PathVariable UUID id, @PathVariable UUID lineId) {
         return content.deletePart(id, lineId);
+    }
+
+    @PostMapping("/{id}/photos")
+    ActDetail addPhoto(@PathVariable UUID id, @Valid @RequestBody AddPhotoRequest request) {
+        return photos.add(id, request.mediaId(), request.caption());
+    }
+
+    @PutMapping("/{id}/photos/order")
+    ActDetail reorderPhotos(@PathVariable UUID id, @Valid @RequestBody PhotoOrderRequest request) {
+        return photos.reorder(id, request.photoIds());
+    }
+
+    @PutMapping("/{id}/photos/{photoId}")
+    ActDetail captionPhoto(@PathVariable UUID id, @PathVariable UUID photoId, @Valid @RequestBody CaptionRequest request) {
+        return photos.caption(id, photoId, request.caption());
+    }
+
+    @DeleteMapping("/{id}/photos/{photoId}")
+    ActDetail deletePhoto(@PathVariable UUID id, @PathVariable UUID photoId) {
+        return photos.delete(id, photoId);
     }
 }

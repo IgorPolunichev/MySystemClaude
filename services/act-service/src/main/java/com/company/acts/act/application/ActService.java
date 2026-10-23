@@ -10,6 +10,7 @@ import com.company.acts.act.application.port.out.DirectoryClient;
 import com.company.acts.act.application.port.out.EventPublisher;
 import com.company.acts.act.application.port.out.ParticipantRepository;
 import com.company.acts.act.application.port.out.PartLineRepository;
+import com.company.acts.act.application.port.out.PhotoRepository;
 import com.company.acts.act.application.port.out.TimeEntryRepository;
 import com.company.acts.act.application.view.ActDetail;
 import com.company.acts.act.application.view.ActSearchQuery;
@@ -57,16 +58,19 @@ public class ActService {
     private final CurrentUserProvider users;
     private final ActLoader loader;
     private final ActDetailAssembler assembler;
+    private final PhotoRepository photos;
     private final Clock clock;
 
     public ActService(ActRepository acts, ParticipantRepository participants, TimeEntryRepository timeEntries,
-                      PartLineRepository partLines, ActHistoryRepository history, ActNumberGenerator numbers,
+                      PartLineRepository partLines, PhotoRepository photos, ActHistoryRepository history,
+                      ActNumberGenerator numbers,
                       DirectoryClient directory, EventPublisher events, CurrentUserProvider users, ActLoader loader,
                       ActDetailAssembler assembler) {
         this.acts = acts;
         this.participants = participants;
         this.timeEntries = timeEntries;
         this.partLines = partLines;
+        this.photos = photos;
         this.history = history;
         this.numbers = numbers;
         this.directory = directory;
@@ -195,7 +199,8 @@ public class ActService {
         ActContext ctx = loader.load(id);
         ctx.require(ctx.policy().canClose(), "Закрыть акт могут его автор, руководитель и администратор");
         WorkAct act = ctx.act();
-        act.close(timeEntries.existsByAct(id), ctx.user().username(), Instant.now(clock));
+        int withoutCaption = (int) photos.findByAct(id).stream().filter(p -> !p.hasCaption()).count();
+        act.close(timeEntries.existsByAct(id), withoutCaption, ctx.user().username(), Instant.now(clock));
         acts.save(act);
         history.append(id, "CLOSED", null, ctx.user().username());
         List<PartLine> lines = partLines.findByAct(id);

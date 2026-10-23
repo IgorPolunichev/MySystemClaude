@@ -19,4 +19,5 @@ export default defineConfig({
   directory: { input: '../contracts/openapi/directory-api.yaml', output: output('directory') },
   parts: { input: '../contracts/openapi/parts-api.yaml', output: output('parts') },
   acts: { input: '../contracts/openapi/acts-api.yaml', output: output('acts') },
+  media: { input: '../contracts/openapi/media-api.yaml', output: output('media') },
 });

@@ -642,6 +642,133 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/photos:
+    post:
+      operationId: addActPhoto
+      tags:
+      - act-photos
+      summary: Добавить фото (файл уже загружен в media-service)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPhotoInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/photos/order:
+    put:
+      operationId: reorderActPhotos
+      tags:
+      - act-photos
+      summary: Изменить порядок фото
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoOrderInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/photos/{photoId}:
+    put:
+      operationId: captionActPhoto
+      tags:
+      - act-photos
+      summary: Изменить подпись к фото
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: photoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptionInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteActPhoto
+      tags:
+      - act-photos
+      summary: Удалить фото из акта
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: photoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   parameters:
     Page:
@@ -1038,6 +1165,7 @@ components:
       - totalTravelHours
       - missingForClose
       - permissions
+      - photos
       properties:
         id:
           type: string
@@ -1152,6 +1280,10 @@ components:
           description: Что не заполнено для закрытия
         permissions:
           $ref: '#/components/schemas/ActPermissions'
+        photos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActPhoto'
     ActCreate:
       type: object
       properties:
@@ -1401,3 +1533,54 @@ components:
           type: string
           pattern: ^([01]\d|2[0-3]):[0-5]\d$
           example: '12:00'
+    ActPhoto:
+      type: object
+      required:
+      - id
+      - mediaId
+      - position
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+          description: 'Файл: /api/v1/media/{mediaId}/content'
+        caption:
+          type:
+          - string
+          - 'null'
+        position:
+          type: integer
+    AddPhotoInput:
+      type: object
+      required:
+      - mediaId
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+        caption:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+    CaptionInput:
+      type: object
+      properties:
+        caption:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+    PhotoOrderInput:
+      type: object
+      required:
+      - photoIds
+      properties:
+        photoIds:
+          type: array
+          items:
+            type: string
+            format: uuid

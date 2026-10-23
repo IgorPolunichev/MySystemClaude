@@ -2,8 +2,10 @@ package com.company.acts.act.application;
 
 import com.company.acts.act.application.port.out.ActRepository;
 import com.company.acts.act.application.port.out.PartLineRepository;
+import com.company.acts.act.application.port.out.PhotoRepository;
 import com.company.acts.act.application.port.out.TimeEntryRepository;
 import com.company.acts.act.application.view.ActDetail;
+import com.company.acts.act.domain.ActPhoto;
 import com.company.acts.act.domain.ActPolicy;
 import com.company.acts.act.domain.TimeEntry;
 import com.company.acts.act.domain.WorkAct;
@@ -22,11 +24,14 @@ class ActDetailAssembler {
     private final ActRepository acts;
     private final TimeEntryRepository timeEntries;
     private final PartLineRepository partLines;
+    private final PhotoRepository photos;
 
-    ActDetailAssembler(ActRepository acts, TimeEntryRepository timeEntries, PartLineRepository partLines) {
+    ActDetailAssembler(ActRepository acts, TimeEntryRepository timeEntries, PartLineRepository partLines,
+                       PhotoRepository photos) {
         this.acts = acts;
         this.timeEntries = timeEntries;
         this.partLines = partLines;
+        this.photos = photos;
     }
 
     ActDetail assemble(ActContext ctx) {
@@ -58,6 +63,10 @@ class ActDetailAssembler {
         var parts = partLines.findByAct(act.id()).stream().map(l -> new ActDetail.PartLineView(l.id(), l.position(),
                 l.source(), l.catalogItemId(), l.name(), l.catalogNumber(), l.quantity(), l.unit().name(),
                 l.unit().label(), l.notes())).toList();
+        List<ActPhoto> photoList = photos.findByAct(act.id());
+        var photoViews = photoList.stream()
+                .map(p -> new ActDetail.PhotoView(p.id(), p.mediaId(), p.caption(), p.position())).toList();
+        int withoutCaption = (int) photoList.stream().filter(p -> !p.hasCaption()).count();
         var permissions = new ActDetail.Permissions(policy.canEdit(), policy.canEditAnyTime(), policy.canOpen(),
                 policy.canClose(), policy.canReopen(), policy.canCancel(), policy.canDelete(),
                 policy.requiresAdminComment());
@@ -68,9 +77,11 @@ class ActDetailAssembler {
                 period.workedDays(), act.shortDescription(), act.detailedDescription(), act.recommendations(),
                 act.customerRepName(), act.customerRepPosition(), act.hideRequisites(), act.hideTravelTime(),
                 act.authorEngineerId(), ts[0], ts[1], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
+                photoViews,
                 TimeEntry.hoursOf(entries.stream().mapToLong(TimeEntry::workMinutes).sum()),
                 sum(entries.stream().map(TimeEntry::travelHours).filter(Objects::nonNull)),
-                act.status().isEditable() ? act.missingForClose(!entries.isEmpty()) : List.of(), permissions);
+                act.status().isEditable() ? act.missingForClose(!entries.isEmpty(), withoutCaption) : List.of(),
+                permissions);
     }
 
     private static BigDecimal sum(java.util.stream.Stream<BigDecimal> values) {

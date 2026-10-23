@@ -41,6 +41,7 @@
         <spring-cloud.version>2025.1.2</spring-cloud.version>
         <archunit.version>1.4.1</archunit.version>
         <poi.version>5.4.1</poi.version>
+        <aws-sdk.version>2.29.0</aws-sdk.version>
     </properties>
 
     <dependencyManagement>
@@ -56,6 +57,13 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws-sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.poi</groupId>

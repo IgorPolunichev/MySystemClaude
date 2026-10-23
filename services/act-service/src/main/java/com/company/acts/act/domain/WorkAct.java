@@ -125,6 +125,11 @@ public final class WorkAct {
 
     /** Что не заполнено для закрытия (раздел 11 SPEC.md); пустой список — можно закрывать. */
     public List<String> missingForClose(boolean hasTimeEntries) {
+        return missingForClose(hasTimeEntries, 0);
+    }
+
+    /** То же с учётом фото: у каждого фото техотчёта должна быть подпись (раздел 6.6 SPEC.md). */
+    public List<String> missingForClose(boolean hasTimeEntries, int photosWithoutCaption) {
         List<String> missing = new ArrayList<>();
         if (equipment == null) {
             missing.add("техника");
@@ -142,14 +147,21 @@ public final class WorkAct {
         if (!hasTimeEntries) {
             missing.add("хотя бы одна запись времени");
         }
+        if (photosWithoutCaption > 0) {
+            missing.add("подписи к фото (без подписи: " + photosWithoutCaption + ")");
+        }
         return missing;
     }
 
     public void close(boolean hasTimeEntries, String by, Instant at) {
+        close(hasTimeEntries, 0, by, at);
+    }
+
+    public void close(boolean hasTimeEntries, int photosWithoutCaption, String by, Instant at) {
         if (status != ActStatus.OPEN) {
             throw new ConflictException("Закрыть можно только открытый акт");
         }
-        List<String> missing = missingForClose(hasTimeEntries);
+        List<String> missing = missingForClose(hasTimeEntries, photosWithoutCaption);
         if (!missing.isEmpty()) {
             throw new BusinessRuleException("Чтобы закрыть акт, заполните: " + String.join(", ", missing));
         }
