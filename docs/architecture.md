@@ -32,7 +32,7 @@ flowchart TB
     dir & parts & act & media & doc & an & ml --> pg[(PostgreSQL<br/>своя БД у каждого сервиса)]
     act & dir & doc & ml -. события, outbox .-> mq[[RabbitMQ]]
     mq -.-> an & parts & act & ml
-    media --> minio[(MinIO<br/>фото и файлы)]
+    media --> s3[(RustFS, S3 API<br/>фото и файлы)]
     ml --> smtp[SMTP / Mailpit]
     gw & dir & act -. ключи JWT .-> kc
 ```

@@ -41,7 +41,7 @@ docker compose up --build
 | API-шлюз | http://localhost:8080 | токен Keycloak |
 | Keycloak (админка) | http://localhost:8180/admin | `kcadmin` / `kcadmin` |
 | RabbitMQ | http://localhost:15672 | `acts` / `acts` |
-| MinIO (консоль) | http://localhost:9001 | `acts` / `acts-secret` |
+| RustFS — хранилище файлов (консоль) | http://localhost:9001 | `acts` / `acts-secret` |
 | Mailpit (письма) | http://localhost:8025 | — |
 | PostgreSQL | `localhost:5432` | `postgres` / `postgres`; у каждого сервиса своя БД и пользователь с тем же именем |
 | Prometheus, Grafana | http://localhost:9090, http://localhost:3001 | только с профилем `observability`, Grafana: `admin` / `admin` |
@@ -103,7 +103,7 @@ npm run api:generate     # перегенерировать клиент API п�
 ## Если что-то не запускается
 
 - **Порт занят** (`port is already allocated`): закройте программу, занимающую порт, или поменяйте левую часть в `ports:` в `docker-compose.yml`.
-- **Не скачивается образ** (`manifest unknown`): пришлите мне текст ошибки — версия образа будет заменена.
+- **Не скачивается образ** (`manifest unknown`, `TLS handshake timeout`): повторите `docker compose pull --ignore-buildable`; при медленном доступе к Docker Hub добавьте зеркало в Docker Desktop → Settings → Docker Engine: `"registry-mirrors": ["https://mirror.gcr.io"]`. Если не помогло — пришлите текст ошибки.
 - **В «Состоянии системы» всё красное с ошибкой 401**: Keycloak ещё запускается; подождите минуту и нажмите «Проверить снова».
 - **Изменили `infra/postgres/init-databases.sh` или `infra/keycloak/acts-realm.json`, а изменений нет**: они применяются только на пустых данных — выполните `docker compose down -v` и запустите снова.
 

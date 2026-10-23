@@ -11,7 +11,7 @@
     </parent>
     <artifactId>media-service</artifactId>
     <name>media-service</name>
-    <description>Загрузка, хранение, сжатие, превью и выдача файлов (MinIO).</description>
+    <description>Загрузка, хранение, сжатие, превью и выдача файлов (S3-совместимое хранилище, сейчас RustFS).</description>
 
     <dependencies>
         <dependency>

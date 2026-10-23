@@ -72,7 +72,7 @@ Oct 22, 2026 · @Igor
 | Брокер событий | RabbitMQ через Spring Cloud Stream (абстракция позволит перейти на Kafka без переписывания) | Асинхронные события между сервисами |
 | Надёжная доставка событий | Transactional Outbox (таблица `outbox` + публикатор) | Все сервисы-источники событий |
 | Синхронные вызовы | Spring `RestClient` / HTTP Interface + Resilience4j (таймауты, retry, circuit breaker) | Межсервисные запросы |
-| Файлы | MinIO (S3-совместимое), AWS SDK v2 S3 client | `media-service` — фото и сгенерированные Excel |
+| Файлы | S3-совместимое хранилище (RustFS; MinIO снят с распространения — ADR 0006), AWS SDK v2 S3 client | `media-service` — фото и сгенерированные Excel |
 | Обработка изображений | Thumbnailator | Сжатие и превью фото |
 | Excel | Apache POI (XSSF) | `document-service` |
 | Шаблоны писем | FreeMarker | `mail-service` |
@@ -80,7 +80,7 @@ Oct 22, 2026 · @Igor
 | Поиск | PostgreSQL full-text search (`tsvector`, конфигурация `russian`) + `pg_trgm` | `act-service`; позже можно заменить на OpenSearch |
 | Кэш | Caffeine (локально), Redis — только при реальной необходимости | Справочники |
 | Логи/метрики/трассировка | Micrometer, OpenTelemetry, Prometheus, Grafana, Loki, Tempo | Все сервисы |
-| Тесты | JUnit 5, AssertJ, Mockito, Testcontainers (PostgreSQL, RabbitMQ, MinIO), Spring Cloud Contract или Pact, ArchUnit | Все сервисы |
+| Тесты | JUnit 5, AssertJ, Mockito, Testcontainers (PostgreSQL, RabbitMQ, S3-хранилище), Spring Cloud Contract или Pact, ArchUnit | Все сервисы |
 | Утилиты | Lombok (только `@Getter`, `@Builder`, `@RequiredArgsConstructor`; для DTO — `record`) | Все сервисы |
 
 ### Frontend
@@ -105,12 +105,12 @@ Oct 22, 2026 · @Igor
 
 | Область | Технология |
 | --- | --- |
-| Локальный запуск | Docker Compose: все сервисы, PostgreSQL, RabbitMQ, MinIO, Keycloak, MailHog/Mailpit, Prometheus, Grafana |
+| Локальный запуск | Docker Compose: все сервисы, PostgreSQL, RabbitMQ, RustFS (S3), Keycloak, MailHog/Mailpit, Prometheus, Grafana |
 | Контейнеры | Docker, образы через Spring Boot Buildpacks или Jib |
 | CI | GitHub Actions или GitLab CI: сборка, тесты, линтеры, сборка образов |
 | Продакшен (позже) | Kubernetes + Helm; на старте допустим Docker Compose на одном сервере |
 | Обратный прокси | Nginx или Traefik (TLS, раздача фронтенда) |
-| Резервные копии | `pg_dump` по расписанию + версионирование бакета MinIO |
+| Резервные копии | `pg_dump` по расписанию + версионирование бакета S3-хранилища |
 
 ## 4. Архитектура: микросервисы, границы и взаимодействие
 
@@ -125,7 +125,7 @@ Oct 22, 2026 · @Igor
 | `directory-service` | Справочники: организации, подразделения, типы техники, техника, инженеры, отделы сервисной компании | Организации, техника, инженеры |
 | `parts-service` | Каталог запчастей и жидкостей, единицы измерения, поиск по номеру/названию | Каталог |
 | `act-service` | Ядро: акты, нумерация, работы, записи времени, позиции запчастей, метаданные фото, статусы, права, поиск | Акты и всё внутри них |
-| `media-service` | Загрузка, хранение, сжатие, превью и выдача файлов (presigned URL) | Объекты в MinIO и их метаданные |
+| `media-service` | Загрузка, хранение, сжатие, превью и выдача файлов (presigned URL) | Объекты в S3-хранилище и их метаданные |
 | `document-service` | Генерация Excel по данным акта; профили формы акта (конструктор); в будущем — PDF и другие формы | Шаблоны документов, профили формы акта, история генераций |
 | `analytics-service` | Продуктивные часы, нормы, агрегаты для дашборда (read model из событий) | Нормы, агрегаты часов |
 | `mail-service` | Адресная книга, шаблоны писем, формирование и отправка писем, журнал отправок | Контакты, шаблоны, журнал |
@@ -278,7 +278,7 @@ com.company.acts.<service>
 - Форматы: JPEG, PNG, HEIC (конвертируется в JPEG на сервере). Клиент сжимает до длинной стороны 2560 px; сервер хранит оригинал и превью 400 px.
 - Каждое фото обязательно имеет подпись (до 200 символов); порядок меняется перетаскиванием.
 - Удаление фото — только пока акт не закрыт.
-- Загрузка идёт напрямую в MinIO по presigned URL, выданному `media-service`, а затем акт получает ссылку `media_id`. Ограничение размера одного файла — 20 МБ.
+- Загрузка идёт напрямую в S3-хранилище по presigned URL, выданному `media-service`, а затем акт получает ссылку `media_id`. Ограничение размера одного файла — 20 МБ.
 
 ### 6.7. Подписи
 
@@ -300,7 +300,7 @@ com.company.acts.<service>
 
 ## 7. Формирование Excel: лист акта и листы техотчёта
 
-Excel формирует `document-service` на Apache POI (XSSF) по данным, полученным от `act-service` через REST (`GET /api/v1/acts/{id}/document-data` — плоская модель для печати), и файлам фото из `media-service`. Готовый файл сохраняется в MinIO и отдаётся пользователю ссылкой на скачивание.
+Excel формирует `document-service` на Apache POI (XSSF) по данным, полученным от `act-service` через REST (`GET /api/v1/acts/{id}/document-data` — плоская модель для печати), и файлам фото из `media-service`. Готовый файл сохраняется в S3-хранилище и отдаётся пользователю ссылкой на скачивание.
 
 ### Общие правила печати
 
@@ -338,7 +338,7 @@ Excel формирует `document-service` на Apache POI (XSSF) по данн
 
 ## 8. Хранение, поиск и сортировка актов
 
-Данные актов лежат в PostgreSQL (`act-service`), фото и сгенерированные файлы — в MinIO (`media-service`). Поиск реализуется в `act-service` средствами PostgreSQL; интерфейс поиска спрятан за портом `ActSearchPort`, чтобы позже заменить реализацию на OpenSearch без правок контроллеров и фронтенда.
+Данные актов лежат в PostgreSQL (`act-service`), фото и сгенерированные файлы — в S3-хранилище (`media-service`). Поиск реализуется в `act-service` средствами PostgreSQL; интерфейс поиска спрятан за портом `ActSearchPort`, чтобы позже заменить реализацию на OpenSearch без правок контроллеров и фронтенда.
 
 ### Реестр актов (`GET /api/v1/acts`)
 
@@ -466,7 +466,7 @@ Excel формирует `document-service` на Apache POI (XSSF) по данн
 
 - Только HTTPS; JWT с коротким сроком жизни и refresh-токеном; CORS только для домена фронтенда.
 - Проверка типа загружаемых файлов по содержимому (Apache Tika), ограничение размера, удаление EXIF-геоданных по настройке.
-- Доступ к файлам MinIO только через presigned URL с коротким сроком жизни.
+- Доступ к файлам в S3-хранилище только через presigned URL с коротким сроком жизни.
 - Секреты — через переменные окружения или Vault/Kubernetes Secrets, не в репозитории.
 - Зависимости проверяются OWASP Dependency-Check или Trivy в CI.
 
