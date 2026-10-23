@@ -1,0 +1,1646 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — справочники (directory-service)
+  version: 1.0.0
+  description: 'Организации-заказчики, их подразделения, техника, типы техники, отделы сервисной компании и инженеры.
+
+    Добавлять записи может любой пользователь; изменять и удалять — руководитель отдела и администратор; инженеров и отделы сервисной компании
+    — только администратор.'
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/organizations:
+    get:
+      operationId: listOrganizations
+      tags:
+      - organizations
+      summary: 'Список: организация'
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Поиск по названию, сокращённому названию, ИНН
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Только активные / только неактивные
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sort
+        in: query
+        schema:
+          type: string
+        description: Поле сортировки; «-» в начале — по убыванию
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationPage'
+    post:
+      operationId: createOrganization
+      tags:
+      - organizations
+      summary: 'Создать: организация'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/organizations/{id}:
+    get:
+      operationId: getOrganization
+      tags:
+      - organizations
+      summary: 'Получить: организация'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateOrganization
+      tags:
+      - organizations
+      summary: 'Изменить: организация'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteOrganization
+      tags:
+      - organizations
+      summary: 'Удалить: организация'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/organizations/{id}/departments:
+    get:
+      operationId: listOrganizationDepartments
+      tags:
+      - departments
+      summary: Подразделения организации (плоский список, дерево — по parentId)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/organizations/import:
+    post:
+      operationId: importOrganizations
+      tags:
+      - organizations
+      summary: 'Импорт из Excel/CSV: организации'
+      description: Строки с ошибками пропускаются, остальные сохраняются. Существующие записи обновляются по ключу (см. шаблон).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/organizations/import/template:
+    get:
+      operationId: getOrganizationsImportTemplate
+      tags:
+      - organizations
+      summary: 'Шаблон импорта: организации'
+      responses:
+        '200':
+          description: Файл Excel
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+  /api/v1/departments:
+    post:
+      operationId: createDepartment
+      tags:
+      - departments
+      summary: 'Создать: подразделение'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/departments/{id}:
+    put:
+      operationId: updateDepartment
+      tags:
+      - departments
+      summary: 'Изменить: подразделение'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteDepartment
+      tags:
+      - departments
+      summary: 'Удалить: подразделение'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/equipment-types:
+    get:
+      operationId: listEquipmentTypes
+      tags:
+      - equipment-types
+      summary: 'Список: тип техники'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EquipmentType'
+    post:
+      operationId: createEquipmentType
+      tags:
+      - equipment-types
+      summary: 'Создать: тип техники'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentTypeInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/equipment-types/{id}:
+    put:
+      operationId: updateEquipmentType
+      tags:
+      - equipment-types
+      summary: 'Изменить: тип техники'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentTypeInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentType'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteEquipmentType
+      tags:
+      - equipment-types
+      summary: 'Удалить: тип техники'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/equipment:
+    get:
+      operationId: listEquipment
+      tags:
+      - equipment
+      summary: 'Список: единица техники'
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Поиск по серийному, гаражному, госномеру, марке и модели
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Организация
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Подразделение (включая вложенные)
+      - name: equipmentTypeId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Тип техники
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sort
+        in: query
+        schema:
+          type: string
+        description: Поле сортировки; «-» в начале — по убыванию
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentPage'
+    post:
+      operationId: createEquipment
+      tags:
+      - equipment
+      summary: 'Создать: единица техники'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/equipment/{id}:
+    get:
+      operationId: getEquipment
+      tags:
+      - equipment
+      summary: 'Получить: единица техники'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateEquipment
+      tags:
+      - equipment
+      summary: 'Изменить: единица техники'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EquipmentInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteEquipment
+      tags:
+      - equipment
+      summary: 'Удалить: единица техники'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/equipment/import:
+    post:
+      operationId: importEquipment
+      tags:
+      - equipment
+      summary: 'Импорт из Excel/CSV: техника'
+      description: Строки с ошибками пропускаются, остальные сохраняются. Существующие записи обновляются по ключу (см. шаблон).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/equipment/import/template:
+    get:
+      operationId: getEquipmentImportTemplate
+      tags:
+      - equipment
+      summary: 'Шаблон импорта: техника'
+      responses:
+        '200':
+          description: Файл Excel
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+  /api/v1/service-departments:
+    get:
+      operationId: listServiceDepartments
+      tags:
+      - service-departments
+      summary: 'Список: отдел сервисной компании'
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceDepartment'
+    post:
+      operationId: createServiceDepartment
+      tags:
+      - service-departments
+      summary: 'Создать: отдел сервисной компании'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceDepartmentInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceDepartment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/service-departments/{id}:
+    put:
+      operationId: updateServiceDepartment
+      tags:
+      - service-departments
+      summary: 'Изменить: отдел сервисной компании'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceDepartmentInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceDepartment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteServiceDepartment
+      tags:
+      - service-departments
+      summary: 'Удалить: отдел сервисной компании'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/engineers:
+    get:
+      operationId: listEngineers
+      tags:
+      - engineers
+      summary: Список инженеров
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Поиск по ФИО, логину
+      - name: serviceDepartmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Отдел
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Активные / заблокированные
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sort
+        in: query
+        schema:
+          type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngineerPage'
+    post:
+      operationId: createEngineer
+      tags:
+      - engineers
+      summary: Создать инженера и его учётную запись в Keycloak
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EngineerCreate'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Engineer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/engineers/me:
+    get:
+      operationId: getCurrentEngineer
+      tags:
+      - engineers
+      summary: Карточка инженера текущего пользователя
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Engineer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/engineers/{id}:
+    get:
+      operationId: getEngineer
+      tags:
+      - engineers
+      summary: Получить инженера
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Engineer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateEngineer
+      tags:
+      - engineers
+      summary: Изменить инженера
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EngineerUpdate'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Engineer'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Organization:
+      type: object
+      required:
+      - id
+      - name
+      - active
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        shortName:
+          type:
+          - string
+          - 'null'
+        inn:
+          type:
+          - string
+          - 'null'
+        kpp:
+          type:
+          - string
+          - 'null'
+        ogrn:
+          type:
+          - string
+          - 'null'
+        legalAddress:
+          type:
+          - string
+          - 'null'
+        actualAddress:
+          type:
+          - string
+          - 'null'
+        bankDetails:
+          type:
+          - string
+          - 'null'
+        phone:
+          type:
+          - string
+          - 'null'
+        email:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    OrganizationInput:
+      type: object
+      required:
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        name:
+          type: string
+          maxLength: 300
+          minLength: 1
+        shortName:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+        inn:
+          type:
+          - string
+          - 'null'
+          maxLength: 12
+          description: 10 или 12 цифр, проверяется контрольная сумма
+        kpp:
+          type:
+          - string
+          - 'null'
+          maxLength: 9
+        ogrn:
+          type:
+          - string
+          - 'null'
+          maxLength: 15
+        legalAddress:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        actualAddress:
+          type:
+          - string
+          - 'null'
+          maxLength: 500
+        bankDetails:
+          type:
+          - string
+          - 'null'
+          maxLength: 1000
+        phone:
+          type:
+          - string
+          - 'null'
+          maxLength: 50
+        email:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+        notes:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+        active:
+          type:
+          - boolean
+          - 'null'
+          description: По умолчанию true
+    Department:
+      type: object
+      required:
+      - id
+      - organizationId
+      - name
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        name:
+          type: string
+        code:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    DepartmentInput:
+      type: object
+      required:
+      - organizationId
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        organizationId:
+          type: string
+          format: uuid
+        parentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+        code:
+          type:
+          - string
+          - 'null'
+          maxLength: 50
+    EquipmentType:
+      type: object
+      required:
+      - id
+      - name
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    EquipmentTypeInput:
+      type: object
+      required:
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        name:
+          type: string
+          maxLength: 100
+          minLength: 1
+    MeterType:
+      type: string
+      enum:
+      - HOURS
+      - KM
+      - BOTH
+      description: 'Учёт наработки: моточасы, пробег или оба'
+    Equipment:
+      type: object
+      required:
+      - id
+      - organizationId
+      - organizationName
+      - equipmentTypeId
+      - equipmentTypeName
+      - brand
+      - model
+      - meterType
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        organizationName:
+          type: string
+        departmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        departmentName:
+          type:
+          - string
+          - 'null'
+        equipmentTypeId:
+          type: string
+          format: uuid
+        equipmentTypeName:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        serialNumber:
+          type:
+          - string
+          - 'null'
+        garageNumber:
+          type:
+          - string
+          - 'null'
+        plateNumber:
+          type:
+          - string
+          - 'null'
+        meterType:
+          $ref: '#/components/schemas/MeterType'
+        currentHours:
+          type:
+          - number
+          - 'null'
+        currentKm:
+          type:
+          - number
+          - 'null'
+        year:
+          type:
+          - integer
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    EquipmentInput:
+      type: object
+      required:
+      - organizationId
+      - equipmentTypeId
+      - brand
+      - model
+      - meterType
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        organizationId:
+          type: string
+          format: uuid
+        departmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        equipmentTypeId:
+          type: string
+          format: uuid
+        brand:
+          type: string
+          maxLength: 100
+          minLength: 1
+        model:
+          type: string
+          maxLength: 100
+          minLength: 1
+        serialNumber:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+          description: Серийный номер / VIN / PIN; уникален в пределах организации
+        garageNumber:
+          type:
+          - string
+          - 'null'
+          maxLength: 50
+        plateNumber:
+          type:
+          - string
+          - 'null'
+          maxLength: 20
+        meterType:
+          $ref: '#/components/schemas/MeterType'
+        currentHours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        currentKm:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        year:
+          type:
+          - integer
+          - 'null'
+          minimum: 1950
+          maximum: 2100
+        notes:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+    ServiceDepartment:
+      type: object
+      required:
+      - id
+      - name
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ServiceDepartmentInput:
+      type: object
+      required:
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        name:
+          type: string
+          maxLength: 200
+          minLength: 1
+    EngineerRole:
+      type: string
+      enum:
+      - ENGINEER
+      - DEPARTMENT_HEAD
+      - ADMIN
+    Engineer:
+      type: object
+      required:
+      - id
+      - username
+      - lastName
+      - firstName
+      - fullName
+      - active
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        keycloakUserId:
+          type:
+          - string
+          - 'null'
+        username:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type:
+          - string
+          - 'null'
+        fullName:
+          type: string
+          description: Фамилия И. О.
+        position:
+          type:
+          - string
+          - 'null'
+        serviceDepartmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        serviceDepartmentName:
+          type:
+          - string
+          - 'null'
+        phone:
+          type:
+          - string
+          - 'null'
+        email:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    EngineerCreate:
+      type: object
+      required:
+      - username
+      - initialPassword
+      - lastName
+      - firstName
+      - role
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        username:
+          type: string
+          maxLength: 50
+          minLength: 3
+          pattern: ^[a-zA-Z0-9._-]+$
+          description: Логин для входа
+        initialPassword:
+          type: string
+          maxLength: 100
+          minLength: 8
+          description: Временный пароль; при первом входе потребуется сменить
+        role:
+          $ref: '#/components/schemas/EngineerRole'
+        lastName:
+          type: string
+          maxLength: 100
+          minLength: 1
+        firstName:
+          type: string
+          maxLength: 100
+          minLength: 1
+        middleName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        position:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+        serviceDepartmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type:
+          - string
+          - 'null'
+          maxLength: 50
+        email:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+    EngineerUpdate:
+      type: object
+      required:
+      - lastName
+      - firstName
+      - active
+      - version
+      properties:
+        lastName:
+          type: string
+          maxLength: 100
+          minLength: 1
+        firstName:
+          type: string
+          maxLength: 100
+          minLength: 1
+        middleName:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        position:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+        serviceDepartmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type:
+          - string
+          - 'null'
+          maxLength: 50
+        email:
+          type:
+          - string
+          - 'null'
+          maxLength: 150
+        active:
+          type: boolean
+          description: false — учётная запись блокируется в Keycloak
+        version:
+          type: integer
+          format: int64
+    OrganizationPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    EquipmentPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Equipment'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    EngineerPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Engineer'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы
+    ImportRowError:
+      type: object
+      required:
+      - row
+      - message
+      properties:
+        row:
+          type: integer
+        message:
+          type: string
+    ImportResult:
+      type: object
+      required:
+      - created
+      - updated
+      - skipped
+      - errors
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRowError'

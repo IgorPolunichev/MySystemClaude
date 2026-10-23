@@ -26,9 +26,10 @@ import type {
   Problem,
   ServiceName,
   SystemInfo
-} from '../model';
+} from './model';
 
 import { apiFetch } from '../../http';
+
 
 export type HTTPStatusCode1xx = 100 | 101 | 102 | 103;
 export type HTTPStatusCode2xx = 200 | 201 | 202 | 203 | 204 | 205 | 206 | 207;

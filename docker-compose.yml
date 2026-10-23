@@ -39,6 +39,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-acts}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-acts}
+    # Сервисы подключаются к RabbitMQ внутри Docker-сети, порт 5672 наружу не нужен.
+    # Веб-консоль — на 25672: стандартный 15672 часто занят другим RabbitMQ на компьютере.
     ports:
       - "25672:15672"
     healthcheck:
@@ -135,6 +137,11 @@ services:
       DB_NAME: directory
       DB_USER: directory
       DB_PASSWORD: directory
+      # Демо-данные: организации, техника, инженеры для тестовых пользователей
+      FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/demo
+      # Учётные записи инженеров создаются в Keycloak под служебным клиентом acts-directory
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_DIRECTORY_SECRET:-acts-directory-secret}
     ports:
       - "8081:8081"
     depends_on:
@@ -156,6 +163,7 @@ services:
       DB_NAME: parts
       DB_USER: parts
       DB_PASSWORD: parts
+      FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/demo
     ports:
       - "8082:8082"
     depends_on:

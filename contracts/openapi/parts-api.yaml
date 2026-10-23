@@ -1,0 +1,424 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — каталог запчастей (parts-service)
+  version: 1.0.0
+  description: Каталог запчастей и жидкостей, единицы измерения. Добавлять может любой пользователь; изменять и удалять — руководитель отдела
+    и администратор.
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/units:
+    get:
+      operationId: listUnits
+      tags:
+      - units
+      summary: Единицы измерения
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Unit'
+  /api/v1/parts:
+    get:
+      operationId: listParts
+      tags:
+      - parts
+      summary: 'Список: запчасть'
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Поиск по наименованию и каталожному номеру
+      - $ref: '#/components/parameters/Page'
+      - $ref: '#/components/parameters/Size'
+      - name: sort
+        in: query
+        schema:
+          type: string
+        description: Поле сортировки; «-» в начале — по убыванию
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartPage'
+    post:
+      operationId: createPart
+      tags:
+      - parts
+      summary: 'Создать: запчасть'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartInput'
+      responses:
+        '201':
+          description: Создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/parts/{id}:
+    get:
+      operationId: getPart
+      tags:
+      - parts
+      summary: 'Получить: запчасть'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updatePart
+      tags:
+      - parts
+      summary: 'Изменить: запчасть'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Part'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deletePart
+      tags:
+      - parts
+      summary: 'Удалить: запчасть'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Идентификатор
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/parts/import:
+    post:
+      operationId: importParts
+      tags:
+      - parts
+      summary: 'Импорт из Excel/CSV: запчасти'
+      description: Строки с ошибками пропускаются, остальные сохраняются. Существующие записи обновляются по ключу (см. шаблон).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/parts/import/template:
+    get:
+      operationId: getPartsImportTemplate
+      tags:
+      - parts
+      summary: 'Шаблон импорта: запчасти'
+      responses:
+        '200':
+          description: Файл Excel
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Unit:
+      type: object
+      required:
+      - code
+      - name
+      - allowsFraction
+      properties:
+        code:
+          type: string
+          description: PCS, L, KG, M, SET
+        name:
+          type: string
+          description: шт, л, кг, м, компл.
+        allowsFraction:
+          type: boolean
+          description: Можно ли указывать дробное количество
+    Part:
+      type: object
+      required:
+      - id
+      - name
+      - defaultUnit
+      - fluid
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        catalogNumber:
+          type:
+          - string
+          - 'null'
+        manufacturer:
+          type:
+          - string
+          - 'null'
+        defaultUnit:
+          type: string
+        fluid:
+          type: boolean
+          description: Жидкость на розлив
+        notes:
+          type:
+          - string
+          - 'null'
+        version:
+          type: integer
+          format: int64
+          description: Версия для оптимистичной блокировки
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PartInput:
+      type: object
+      required:
+      - name
+      - defaultUnit
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Только при создании: id, выданный клиентом (UUID v7) для идемпотентности'
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: Обязательно при изменении
+        name:
+          type: string
+          maxLength: 300
+          minLength: 1
+        catalogNumber:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        manufacturer:
+          type:
+          - string
+          - 'null'
+          maxLength: 100
+        defaultUnit:
+          type: string
+          maxLength: 10
+        fluid:
+          type:
+          - boolean
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+          maxLength: 2000
+    PartPage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Part'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы
+    ImportRowError:
+      type: object
+      required:
+      - row
+      - message
+      properties:
+        row:
+          type: integer
+        message:
+          type: string
+    ImportResult:
+      type: object
+      required:
+      - created
+      - updated
+      - skipped
+      - errors
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportRowError'

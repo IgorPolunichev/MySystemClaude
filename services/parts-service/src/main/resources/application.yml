@@ -14,6 +14,12 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    # Демо-данные подключаются добавлением classpath:db/demo (так сделано в docker-compose.yml).
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   mvc:
     problemdetails:
       enabled: true

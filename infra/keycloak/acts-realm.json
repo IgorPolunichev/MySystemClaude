@@ -52,6 +52,18 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:5173/*"
       }
+    },
+    {
+      "clientId": "acts-directory",
+      "name": "directory-service — управление учётными записями инженеров",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "acts-directory-secret",
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false
     }
   ],
   "users": [
@@ -71,7 +83,8 @@
       ],
       "realmRoles": [
         "ENGINEER"
-      ]
+      ],
+      "id": "a0000000-0000-4000-8000-000000000001"
     },
     {
       "username": "engineer2",
@@ -89,7 +102,8 @@
       ],
       "realmRoles": [
         "ENGINEER"
-      ]
+      ],
+      "id": "a0000000-0000-4000-8000-000000000002"
     },
     {
       "username": "head",
@@ -107,7 +121,8 @@
       ],
       "realmRoles": [
         "DEPARTMENT_HEAD"
-      ]
+      ],
+      "id": "a0000000-0000-4000-8000-000000000003"
     },
     {
       "username": "admin",
@@ -125,7 +140,21 @@
       ],
       "realmRoles": [
         "ADMIN"
-      ]
+      ],
+      "id": "a0000000-0000-4000-8000-000000000004"
+    },
+    {
+      "username": "service-account-acts-directory",
+      "enabled": true,
+      "serviceAccountClientId": "acts-directory",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
     }
   ]
 }

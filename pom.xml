@@ -19,6 +19,9 @@
     <name>Сервисные акты</name>
 
     <modules>
+        <module>platform/common-core</module>
+        <module>platform/common-persistence</module>
+        <module>platform/common-import</module>
         <module>platform/common-web</module>
         <module>platform/common-events</module>
         <module>platform/common-test</module>
@@ -37,6 +40,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-cloud.version>2025.1.2</spring-cloud.version>
         <archunit.version>1.4.1</archunit.version>
+        <poi.version>5.4.1</poi.version>
     </properties>
 
     <dependencyManagement>
@@ -52,6 +56,26 @@
                 <groupId>com.tngtech.archunit</groupId>
                 <artifactId>archunit-junit5</artifactId>
                 <version>${archunit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.company.acts</groupId>
+                <artifactId>common-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.company.acts</groupId>
+                <artifactId>common-persistence</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.company.acts</groupId>
+                <artifactId>common-import</artifactId>
+                <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.company.acts</groupId>

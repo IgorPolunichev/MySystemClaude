@@ -3,7 +3,7 @@ import { Badge, Button, Table, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { getGetSystemInfoQueryOptions } from '../../api/generated/system/system';
-import { ServiceName, type SystemInfo } from '../../api/generated/model';
+import { ServiceName, type SystemInfo } from '../../api/generated/system/model';
 
 const SERVICES = Object.values(ServiceName);
 

@@ -7,6 +7,7 @@ import com.company.acts.common.web.tracing.CorrelationIdFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -18,6 +19,7 @@ import org.springframework.security.web.SecurityFilterChain;
  * чтобы не зависеть от порядка авто-конфигураций Spring Boot.
  */
 @Configuration(proxyBeanMethods = false)
+@EnableMethodSecurity
 @Import({GlobalExceptionHandler.class, SystemInfoController.class})
 public class CommonWebConfiguration {
 
