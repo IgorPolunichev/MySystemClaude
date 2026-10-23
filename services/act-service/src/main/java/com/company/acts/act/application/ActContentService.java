@@ -18,6 +18,7 @@ import com.company.acts.act.domain.Participant;
 import com.company.acts.act.domain.ParticipantRole;
 import com.company.acts.act.domain.TimeEntry;
 import com.company.acts.act.domain.UnitOfMeasure;
+import com.company.acts.act.domain.WorkBreak;
 import com.company.acts.common.core.BusinessRuleException;
 import com.company.acts.common.core.ConflictException;
 import com.company.acts.common.core.NotFoundException;
@@ -26,6 +27,7 @@ import com.company.acts.common.events.EventTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -38,8 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ActContentService {
 
-    static final BigDecimal DAILY_LIMIT = BigDecimal.valueOf(24);
-    static final BigDecimal DAILY_WARNING = BigDecimal.valueOf(12);
+    static final long DAILY_LIMIT_MINUTES = TimeEntry.DAY_MINUTES;
+    static final long DAILY_WARNING_MINUTES = 12 * 60;
 
     /** Итог изменения ячейки табеля; предупреждение — если за день у инженера больше 12 часов. */
     public record TimeEntryResult(ActDetail act, String warning) {
@@ -120,19 +122,21 @@ public class ActContentService {
             throw new BusinessRuleException("engineerId", "Сначала добавьте инженера в акт");
         }
         var existing = timeEntries.find(actId, engineerId, date);
+        List<WorkBreak> breaks = command.breaks() == null ? List.of() : command.breaks().stream()
+                .map(b -> new WorkBreak(b.startTime(), b.endTime())).toList();
         TimeEntry entry = new TimeEntry(existing.map(TimeEntry::id).orElseGet(Uuid7::next), actId, engineerId, date,
-                command.hours(), command.travelHours(), command.comment());
-        BigDecimal otherHours = timeEntries.hoursOfEngineerOnDate(engineerId, date, entry.id());
-        BigDecimal dayTotal = otherHours.add(entry.hours());
-        if (dayTotal.compareTo(DAILY_LIMIT) > 0) {
-            throw new BusinessRuleException("hours", "За " + date + " у инженера уже " + otherHours.stripTrailingZeros()
-                    .toPlainString() + " ч по другим актам; всего за день не больше 24 ч");
+                command.startTime(), command.endTime(), breaks, command.travelHours(), command.comment());
+        long otherMinutes = timeEntries.minutesOfEngineerOnDate(engineerId, date, entry.id());
+        long dayTotal = otherMinutes + entry.workMinutes();
+        if (dayTotal > DAILY_LIMIT_MINUTES) {
+            throw new BusinessRuleException("endTime", "За " + date + " у инженера уже " + hoursText(otherMinutes)
+                    + " ч по другим актам; всего за день не больше 24 ч");
         }
         timeEntries.save(entry);
         acts.refreshAggregates(actId);
         publishTime(actId, entry, entry.hours());
-        String warning = dayTotal.compareTo(DAILY_WARNING) > 0
-                ? "За " + date + " у инженера " + dayTotal.stripTrailingZeros().toPlainString() + " ч — проверьте"
+        String warning = dayTotal > DAILY_WARNING_MINUTES
+                ? "За " + date + " у инженера " + hoursText(dayTotal) + " ч — проверьте"
                 : null;
         return new TimeEntryResult(assembler.assemble(loader.load(actId)), warning);
     }
@@ -203,11 +207,18 @@ public class ActContentService {
         return ctx;
     }
 
+    private static String hoursText(long minutes) {
+        return TimeEntry.hoursOf(minutes).stripTrailingZeros().toPlainString().replace('.', ',');
+    }
+
     private void publishTime(UUID actId, TimeEntry entry, BigDecimal hours) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("engineerId", entry.engineerId().toString());
         payload.put("workDate", entry.workDate().toString());
         payload.put("hours", hours);
+        payload.put("workMinutes", hours.signum() == 0 ? 0 : entry.workMinutes());
+        payload.put("startTime", entry.startTime() == null ? null : entry.startTime().toString());
+        payload.put("endTime", entry.endTime() == null ? null : entry.endTime().toString());
         payload.put("travelHours", entry.travelHours());
         events.publish(EventTypes.TIME_ENTRY_CHANGED, actId, payload);
     }

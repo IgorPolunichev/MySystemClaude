@@ -38,3 +38,4 @@ export * from './sizeParameter';
 export * from './timeEntryInput';
 export * from './timeEntryResult';
 export * from './unprocessableResponse';
+export * from './workBreak';

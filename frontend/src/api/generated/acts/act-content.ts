@@ -296,7 +296,7 @@ export const getPutActTimeUrl = (id: string,
 }
 
 /**
- * @summary Записать часы инженера за день
+ * @summary Записать интервал работы инженера за день (часы считаются из интервала минус перерывы)
  */
 export const putActTime = async (id: string,
     engineerId: string,
@@ -365,7 +365,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type PutActTimeMutationVariables = {id: string;engineerId: string;date: string;data: TimeEntryInput}
 
     /**
- * @summary Записать часы инженера за день
+ * @summary Записать интервал работы инженера за день (часы считаются из интервала минус перерывы)
  */
 export const usePutActTime = <TError = ForbiddenResponse | NotFoundResponse | UnprocessableResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putActTime>>, TError,PutActTimeMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

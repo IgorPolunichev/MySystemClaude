@@ -458,7 +458,7 @@ paths:
       operationId: putActTime
       tags:
       - act-content
-      summary: Записать часы инженера за день
+      summary: Записать интервал работы инженера за день (часы считаются из интервала минус перерывы)
       parameters:
       - name: id
         in: path
@@ -907,6 +907,8 @@ components:
       - id
       - engineerId
       - workDate
+      - breaks
+      - workMinutes
       - hours
       properties:
         id:
@@ -918,8 +920,30 @@ components:
         workDate:
           type: string
           format: date
+        startTime:
+          type:
+          - string
+          - 'null'
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          description: Время ЧЧ:ММ
+          example: '10:00'
+        endTime:
+          type:
+          - string
+          - 'null'
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          description: Время ЧЧ:ММ
+          example: '10:00'
+        breaks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkBreak'
+        workMinutes:
+          type: integer
+          description: Продуктивные минуты (источник правды)
         hours:
           type: number
+          description: Продуктивные часы, округлены до сотых
         travelHours:
           type:
           - number
@@ -1238,14 +1262,28 @@ components:
           format: uuid
     TimeEntryInput:
       type: object
+      description: 'Ячейка табеля. Продуктивное время считает сервер: окончание − начало − перерывы. Окончание не позже начала — работа до следующего
+        дня (ночная смена). Только время в пути — без интервала.'
       properties:
-        hours:
+        startTime:
           type:
-          - number
+          - string
           - 'null'
-          minimum: 0
-          maximum: 24
-          multipleOf: 0.25
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          description: Время ЧЧ:ММ
+          example: '10:00'
+        endTime:
+          type:
+          - string
+          - 'null'
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          description: Время ЧЧ:ММ
+          example: '10:00'
+        breaks:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/WorkBreak'
         travelHours:
           type:
           - number
@@ -1349,3 +1387,17 @@ components:
           additionalProperties:
             type: string
           description: Ошибки по полям формы
+    WorkBreak:
+      type: object
+      required:
+      - startTime
+      - endTime
+      properties:
+        startTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          example: '11:00'
+        endTime:
+          type: string
+          pattern: ^([01]\d|2[0-3]):[0-5]\d$
+          example: '12:00'

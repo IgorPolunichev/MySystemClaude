@@ -5,14 +5,26 @@
  * Жизненный цикл акта: черновик → открыт (номер АВР-ГГГГ-NNNNNN) → закрыт; аннулирование. Табель «инженер × день», запчасти, участники, журнал. Права текущего пользователя возвращаются в карточке (permissions).
  * OpenAPI spec version: 1.0.0
  */
+import type { WorkBreak } from './workBreak';
 
+/**
+ * Ячейка табеля. Продуктивное время считает сервер: окончание − начало − перерывы. Окончание не позже начала — работа до следующего дня (ночная смена). Только время в пути — без интервала.
+ */
 export interface TimeEntryInput {
   /**
-     * @minimum 0
-     * @maximum 24
+     * Время ЧЧ:ММ
      * @nullable
+     * @pattern ^([01]\d|2[0-3]):[0-5]\d$
      */
-  hours?: number | null;
+  startTime?: string | null;
+  /**
+     * Время ЧЧ:ММ
+     * @nullable
+     * @pattern ^([01]\d|2[0-3]):[0-5]\d$
+     */
+  endTime?: string | null;
+  /** @maxItems 20 */
+  breaks?: WorkBreak[];
   /**
      * @minimum 0
      * @maximum 24

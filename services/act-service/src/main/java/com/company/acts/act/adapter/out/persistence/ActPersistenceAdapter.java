@@ -124,7 +124,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         em.flush();
         jdbc.update("""
                 update work_act w set
-                    total_hours = coalesce((select sum(t.hours) from time_entry t where t.act_id = w.id), 0),
+                    total_hours = round(coalesce((select sum(t.work_minutes) from time_entry t where t.act_id = w.id), 0) / 60.0, 2),
                     period_start = coalesce(w.work_start_override,
                         (select min(t.work_date) from time_entry t where t.act_id = w.id)),
                     period_end = coalesce(w.work_end_override,

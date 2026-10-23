@@ -4,9 +4,11 @@ import com.company.acts.act.domain.ActStatus;
 import com.company.acts.act.domain.MeterType;
 import com.company.acts.act.domain.ParticipantRole;
 import com.company.acts.act.domain.PartSource;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,8 +60,16 @@ public record ActDetail(
                                   BigDecimal totalHours, boolean isCurrentUser) {
     }
 
-    public record TimeEntryView(UUID id, UUID engineerId, LocalDate workDate, BigDecimal hours,
-                                BigDecimal travelHours, String comment) {
+    /** Ячейка табеля: интервал, перерывы и рассчитанное продуктивное время. */
+    public record TimeEntryView(UUID id, UUID engineerId, LocalDate workDate,
+                                @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm") LocalTime startTime,
+                                @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm") LocalTime endTime,
+                                List<BreakView> breaks, int workMinutes, BigDecimal hours, BigDecimal travelHours,
+                                String comment) {
+    }
+
+    public record BreakView(@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm") LocalTime startTime,
+                            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "HH:mm") LocalTime endTime) {
     }
 
     public record PartLineView(UUID id, int position, PartSource source, UUID catalogItemId, String name,

@@ -47,11 +47,14 @@ class ActDetailAssembler {
                 act.equipment().meterType());
         var engineers = ctx.participants().stream()
                 .map(p -> new ActDetail.ParticipantView(p.engineerId(), p.fullName(), p.position(), p.role(),
-                        sum(entries.stream().filter(e -> e.engineerId().equals(p.engineerId())).map(TimeEntry::hours)),
+                        TimeEntry.hoursOf(entries.stream().filter(e -> e.engineerId().equals(p.engineerId()))
+                                .mapToLong(TimeEntry::workMinutes).sum()),
                         p.isUser(ctx.user())))
                 .toList();
         var entryViews = entries.stream().map(e -> new ActDetail.TimeEntryView(e.id(), e.engineerId(), e.workDate(),
-                e.hours(), e.travelHours(), e.comment())).toList();
+                e.startTime(), e.endTime(),
+                e.breaks().stream().map(b -> new ActDetail.BreakView(b.start(), b.end())).toList(),
+                e.workMinutes(), e.hours(), e.travelHours(), e.comment())).toList();
         var parts = partLines.findByAct(act.id()).stream().map(l -> new ActDetail.PartLineView(l.id(), l.position(),
                 l.source(), l.catalogItemId(), l.name(), l.catalogNumber(), l.quantity(), l.unit().name(),
                 l.unit().label(), l.notes())).toList();
@@ -65,7 +68,7 @@ class ActDetailAssembler {
                 period.workedDays(), act.shortDescription(), act.detailedDescription(), act.recommendations(),
                 act.customerRepName(), act.customerRepPosition(), act.hideRequisites(), act.hideTravelTime(),
                 act.authorEngineerId(), ts[0], ts[1], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
-                sum(entries.stream().map(TimeEntry::hours)),
+                TimeEntry.hoursOf(entries.stream().mapToLong(TimeEntry::workMinutes).sum()),
                 sum(entries.stream().map(TimeEntry::travelHours).filter(Objects::nonNull)),
                 act.status().isEditable() ? act.missingForClose(!entries.isEmpty()) : List.of(), permissions);
     }

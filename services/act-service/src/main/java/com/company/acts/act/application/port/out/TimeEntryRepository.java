@@ -1,7 +1,6 @@
 package com.company.acts.act.application.port.out;
 
 import com.company.acts.act.domain.TimeEntry;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +20,6 @@ public interface TimeEntryRepository {
 
     boolean existsByActAndEngineer(UUID actId, UUID engineerId);
 
-    /** Продуктивные часы инженера за день по всем незакрытым и закрытым актам, кроме указанной записи. */
-    BigDecimal hoursOfEngineerOnDate(UUID engineerId, LocalDate date, UUID excludeEntryId);
+    /** Продуктивные минуты инженера за день по всем неаннулированным актам, кроме указанной записи. */
+    long minutesOfEngineerOnDate(UUID engineerId, LocalDate date, UUID excludeEntryId);
 }

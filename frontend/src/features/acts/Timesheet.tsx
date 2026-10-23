@@ -1,17 +1,6 @@
 import { useMemo, useState } from 'react';
-import {
-  App,
-  Button,
-  InputNumber,
-  Popconfirm,
-  Segmented,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
-import { DeleteOutlined, LeftOutlined, RightOutlined, UserAddOutlined } from '@ant-design/icons';
+import { App, Button, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
+import { CarOutlined, DeleteOutlined, LeftOutlined, RightOutlined, UserAddOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { getGetActQueryKey } from '../../api/generated/acts/acts';
 import {
@@ -20,22 +9,23 @@ import {
   usePutActTime,
   useRemoveActEngineer,
 } from '../../api/generated/acts/act-content';
-import type { ActDetail, ActParticipant, ActTimeEntry } from '../../api/generated/acts/model';
+import type { ActDetail, ActParticipant, ActTimeEntry, TimeEntryInput } from '../../api/generated/acts/model';
 import { ok } from '../../api/unwrap';
 import { errorText } from '../../shared/lib/apiErrors';
 import { invalidateByPrefix } from '../../shared/lib/invalidate';
 import { addDays, formatHours, isoDate, weekStart } from './actMeta';
 import { EngineerSelect } from './lookups';
+import { TimeEntryDialog } from './TimeEntryDialog';
+import { formatDuration } from './workTime';
 
 const DAY_NAMES = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 const dm = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit' });
+const dmy = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
 const num = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
 
-type Mode = 'hours' | 'travelHours';
-
 /**
- * Табель «инженер × день» по неделям. Каждая ячейка сохраняется отдельным запросом при выходе из поля,
- * поэтому инженеры, вносящие время в один акт одновременно, не мешают друг другу.
+ * Табель «инженер × день» по неделям. В ячейке — интервал работы и рассчитанное продуктивное время;
+ * по клику открывается ввод интервала и перерывов. Каждая ячейка сохраняется отдельным запросом.
  */
 export function Timesheet({ act }: { act: ActDetail }) {
   const { message } = App.useApp();
@@ -44,8 +34,8 @@ export function Timesheet({ act }: { act: ActDetail }) {
   const deleteTime = useDeleteActTime();
   const addEngineer = useAddActEngineer();
   const removeEngineer = useRemoveActEngineer();
-  const [mode, setMode] = useState<Mode>('hours');
   const [newEngineer, setNewEngineer] = useState<string>();
+  const [editing, setEditing] = useState<{ participant: ActParticipant; date: Date } | null>(null);
   const [week, setWeek] = useState(() =>
     weekStart(act.workStartDate ? new Date(`${act.workStartDate}T00:00:00`) : new Date()),
   );
@@ -56,6 +46,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
     act.timeEntries.forEach((e) => map.set(`${e.engineerId}|${e.workDate}`, e));
     return map;
   }, [act.timeEntries]);
+  const entryOf = (engineerId: string, d: Date) => entries.get(`${engineerId}|${isoDate(d)}`);
 
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: getGetActQueryKey(act.id) });
@@ -65,30 +56,28 @@ export function Timesheet({ act }: { act: ActDetail }) {
   const canEditRow = (p: ActParticipant) =>
     act.permissions.canEditAnyTime || (act.permissions.canEdit && p.isCurrentUser);
 
-  const commit = async (p: ActParticipant, date: string, value: number | null) => {
-    const existing = entries.get(`${p.engineerId}|${date}`);
-    const current = existing ? (mode === 'hours' ? existing.hours : (existing.travelHours ?? null)) : null;
-    if ((value ?? 0) === (current ?? 0)) return;
-    const hours = mode === 'hours' ? (value ?? 0) : (existing?.hours ?? 0);
-    const travel = mode === 'travelHours' ? value : (existing?.travelHours ?? null);
+  const save = async (p: ActParticipant, date: Date, data: TimeEntryInput) => {
     try {
-      if (!hours && !travel) {
-        if (existing) await deleteTime.mutateAsync({ id: act.id, engineerId: p.engineerId, date });
-      } else {
-        const res = ok(
-          await putTime.mutateAsync({
-            id: act.id,
-            engineerId: p.engineerId,
-            date,
-            data: { hours, travelHours: travel, comment: existing?.comment ?? null },
-          }),
-        );
-        if (res?.warning) message.warning(res.warning);
-      }
+      const res = ok(
+        await putTime.mutateAsync({ id: act.id, engineerId: p.engineerId, date: isoDate(date), data }),
+      );
+      if (res?.warning) message.warning(res.warning);
       await refresh();
+      return true;
     } catch (e) {
       message.error(errorText(e));
+      return false;
+    }
+  };
+
+  const remove = async (p: ActParticipant, date: Date) => {
+    try {
+      await deleteTime.mutateAsync({ id: act.id, engineerId: p.engineerId, date: isoDate(date) });
       await refresh();
+      return true;
+    } catch (e) {
+      message.error(errorText(e));
+      return false;
     }
   };
 
@@ -103,7 +92,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
     }
   };
 
-  const remove = async (p: ActParticipant) => {
+  const removeParticipant = async (p: ActParticipant) => {
     try {
       await removeEngineer.mutateAsync({ id: act.id, engineerId: p.engineerId });
       await refresh();
@@ -112,18 +101,10 @@ export function Timesheet({ act }: { act: ActDetail }) {
     }
   };
 
-  const weekTotal = (p: ActParticipant) =>
-    days.reduce((sum, d) => {
-      const e = entries.get(`${p.engineerId}|${isoDate(d)}`);
-      return sum + (e ? (mode === 'hours' ? e.hours : (e.travelHours ?? 0)) : 0);
-    }, 0);
-
-  const dayTotal = (d: Date) =>
-    act.engineers.reduce((sum, p) => {
-      const e = entries.get(`${p.engineerId}|${isoDate(d)}`);
-      return sum + (e ? (mode === 'hours' ? e.hours : (e.travelHours ?? 0)) : 0);
-    }, 0);
-
+  const minutesOf = (p: ActParticipant, list: Date[]) =>
+    list.reduce((sum, d) => sum + (entryOf(p.engineerId, d)?.workMinutes ?? 0), 0);
+  const dayMinutes = (d: Date) =>
+    act.engineers.reduce((sum, p) => sum + (entryOf(p.engineerId, d)?.workMinutes ?? 0), 0);
   const today = isoDate(new Date());
 
   return (
@@ -132,17 +113,10 @@ export function Timesheet({ act }: { act: ActDetail }) {
         <Typography.Title level={5} style={{ margin: 0 }}>
           Инженеры и время
         </Typography.Title>
-        <Space wrap>
-          <Segmented
-            size="small"
-            value={mode}
-            onChange={(v) => setMode(v as Mode)}
-            options={[
-              { value: 'hours', label: 'Часы работы' },
-              { value: 'travelHours', label: 'Время в пути' },
-            ]}
-          />
-        </Space>
+        <span className="cell-muted">
+          Всего: <b>{formatHours(act.totalHours)}</b>
+          {act.totalTravelHours > 0 && ` · в пути ${formatHours(act.totalTravelHours)}`}
+        </span>
       </div>
 
       <div className="week-nav">
@@ -180,7 +154,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
         size="small"
         pagination={false}
         dataSource={act.engineers}
-        scroll={{ x: 860 }}
+        scroll={{ x: 980 }}
         className="timesheet"
         summary={() => (
           <Table.Summary.Row>
@@ -189,14 +163,16 @@ export function Timesheet({ act }: { act: ActDetail }) {
             </Table.Summary.Cell>
             {days.map((d, i) => (
               <Table.Summary.Cell index={i + 1} key={i} align="center">
-                <span className="cell-muted">{dayTotal(d) ? num.format(dayTotal(d)) : ''}</span>
+                <span className="cell-muted">
+                  {dayMinutes(d) ? `${num.format(dayMinutes(d) / 60)} ч` : ''}
+                </span>
               </Table.Summary.Cell>
             ))}
             <Table.Summary.Cell index={8} align="right">
-              <b>{formatHours(act.engineers.reduce((s, p) => s + weekTotal(p), 0))}</b>
+              <b>{formatHours(act.engineers.reduce((s, p) => s + minutesOf(p, days), 0) / 60)}</b>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={9} align="right">
-              <b>{formatHours(mode === 'hours' ? act.totalHours : act.totalTravelHours)}</b>
+              <b>{formatHours(act.totalHours)}</b>
             </Table.Summary.Cell>
             <Table.Summary.Cell index={10} />
           </Table.Summary.Row>
@@ -206,7 +182,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
             title: 'Инженер',
             key: 'name',
             fixed: 'left',
-            width: 200,
+            width: 190,
             render: (_, p) => (
               <Space direction="vertical" size={0}>
                 <span className="cell-strong">{p.fullName}</span>
@@ -229,35 +205,51 @@ export function Timesheet({ act }: { act: ActDetail }) {
                 </span>
               ),
               key: iso,
-              width: 76,
+              width: 96,
               align: 'center' as const,
               render: (_: unknown, p: ActParticipant) => {
-                const e = entries.get(`${p.engineerId}|${iso}`);
-                const value = e ? (mode === 'hours' ? e.hours : (e.travelHours ?? null)) : null;
+                const e = entryOf(p.engineerId, d);
+                const editable = canEditRow(p);
+                const label = e ? (
+                  <>
+                    {e.startTime && (
+                      <span className="time-range">
+                        {e.startTime}–{e.endTime}
+                      </span>
+                    )}
+                    <b>{e.workMinutes ? formatDuration(e.workMinutes) : '—'}</b>
+                    {!!e.travelHours && (
+                      <span className="time-travel">
+                        <CarOutlined /> {num.format(e.travelHours)} ч
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="time-empty">{editable ? '+' : ''}</span>
+                );
+                const tip = e
+                  ? [
+                      e.startTime && `${e.startTime}–${e.endTime}`,
+                      e.breaks.length
+                        ? `перерывы: ${e.breaks.map((b) => `${b.startTime}–${b.endTime}`).join(', ')}`
+                        : null,
+                      e.comment,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : undefined;
                 return (
-                  <InputNumber
-                    key={`${p.engineerId}|${iso}|${mode}|${value ?? ''}`}
-                    size="small"
-                    min={0}
-                    max={24}
-                    step={0.25}
-                    controls={false}
-                    formatter={(v) =>
-                      v === undefined || v === null || `${v}` === ''
-                        ? ''
-                        : String(Number(v)).replace('.', ',')
-                    }
-                    parser={(v) => (v ? Number(v.replace(',', '.')) : (null as unknown as number))}
-                    defaultValue={value ?? undefined}
-                    disabled={!canEditRow(p)}
-                    className={`hours-cell${weekend ? ' weekend' : ''}`}
-                    aria-label={`${p.fullName}, ${dm.format(d)}`}
-                    onBlur={(ev) => {
-                      const raw = ev.target.value.replace(',', '.').trim();
-                      void commit(p, iso, raw === '' ? null : Number(raw));
-                    }}
-                    onPressEnter={(ev) => (ev.target as HTMLInputElement).blur()}
-                  />
+                  <Tooltip title={tip}>
+                    <button
+                      type="button"
+                      className={`time-cell${weekend ? ' weekend' : ''}${e ? ' filled' : ''}`}
+                      disabled={!editable}
+                      aria-label={`${p.fullName}, ${dm.format(d)}${e ? `: ${formatDuration(e.workMinutes)}` : ''}`}
+                      onClick={() => setEditing({ participant: p, date: d })}
+                    >
+                      {label}
+                    </button>
+                  </Tooltip>
                 );
               },
             };
@@ -267,14 +259,14 @@ export function Timesheet({ act }: { act: ActDetail }) {
             key: 'week',
             width: 80,
             align: 'right',
-            render: (_, p) => formatHours(weekTotal(p)),
+            render: (_, p) => formatHours(minutesOf(p, days) / 60),
           },
           {
             title: 'Всего',
             key: 'total',
             width: 80,
             align: 'right',
-            render: (_, p) => <b>{formatHours(mode === 'hours' ? p.totalHours : null)}</b>,
+            render: (_, p) => <b>{formatHours(p.totalHours)}</b>,
           },
           {
             title: '',
@@ -287,7 +279,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
                   title="Убрать инженера из акта?"
                   okText="Убрать"
                   cancelText="Отмена"
-                  onConfirm={() => void remove(p)}
+                  onConfirm={() => void removeParticipant(p)}
                 >
                   <Tooltip title="Убрать из акта">
                     <Button type="text" size="small" danger icon={<DeleteOutlined />} />
@@ -318,11 +310,28 @@ export function Timesheet({ act }: { act: ActDetail }) {
         </Space.Compact>
       )}
       <Typography.Paragraph type="secondary" className="hint">
-        Шаг — 0,25 ч (15 минут). Значение сохраняется при выходе из ячейки; пустая ячейка удаляет запись.
+        Нажмите на ячейку, чтобы указать время начала и окончания работы и перерывы — продуктивные часы
+        посчитаются сами.
         {!act.permissions.canEditAnyTime &&
           act.permissions.canEdit &&
           ' Вы можете вносить время только за себя.'}
       </Typography.Paragraph>
+
+      {editing && (
+        <TimeEntryDialog
+          title={`${editing.participant.fullName} · ${dmy.format(editing.date)}`}
+          entry={entryOf(editing.participant.engineerId, editing.date)}
+          previous={entryOf(editing.participant.engineerId, addDays(editing.date, -1))}
+          saving={putTime.isPending}
+          onSave={(data) => save(editing.participant, editing.date, data)}
+          onDelete={
+            entryOf(editing.participant.engineerId, editing.date)
+              ? () => remove(editing.participant, editing.date)
+              : undefined
+          }
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

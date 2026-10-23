@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Entity
@@ -29,6 +30,15 @@ public class TimeEntryJpaEntity extends AuditedJpaEntity {
 
     @Column(name = "comment")
     private String comment;
+
+    @Column(name = "start_time")
+    private LocalTime startTime;
+
+    @Column(name = "end_time")
+    private LocalTime endTime;
+
+    @Column(name = "work_minutes")
+    private int workMinutes;
 
     public UUID getActId() {
         return actId;
@@ -76,5 +86,29 @@ public class TimeEntryJpaEntity extends AuditedJpaEntity {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
+    }
+
+    public int getWorkMinutes() {
+        return workMinutes;
+    }
+
+    public void setWorkMinutes(int workMinutes) {
+        this.workMinutes = workMinutes;
     }
 }

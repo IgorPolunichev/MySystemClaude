@@ -404,3 +404,71 @@ body {
   font-weight: 600;
   letter-spacing: 0.01em;
 }
+
+/* Ячейка табеля с интервалом работы */
+.time-cell {
+  width: 100%;
+  min-height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 2px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.time-cell.filled {
+  border-style: solid;
+  background: rgba(31, 92, 153, 0.06);
+}
+
+.time-cell.weekend:not(.filled) {
+  background: rgba(181, 86, 43, 0.05);
+}
+
+.time-cell:hover:not(:disabled) {
+  border-color: var(--amber);
+}
+
+.time-cell:disabled {
+  cursor: default;
+}
+
+.time-cell b {
+  font-size: 13px;
+}
+
+.time-range,
+.time-travel {
+  font-size: 11px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.time-empty {
+  font-size: 18px;
+  opacity: 0.35;
+}
+
+.work-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--amber);
+  background: rgba(217, 154, 30, 0.08);
+  border-radius: 4px;
+}
+
+.work-result b {
+  font-size: 18px;
+}
