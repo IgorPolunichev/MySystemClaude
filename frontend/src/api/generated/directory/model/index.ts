@@ -29,6 +29,7 @@ export * from './importRowError';
 export * from './listEngineersParams';
 export * from './listEquipmentParams';
 export * from './listOrganizationsParams';
+export * from './meterInput';
 export * from './meterType';
 export * from './notFoundResponse';
 export * from './organization';

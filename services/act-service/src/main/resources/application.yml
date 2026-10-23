@@ -32,6 +32,12 @@ server:
 
 app:
   version: "@project.version@"
+  acts:
+    # Префикс номера акта: АВР-2026-000123
+    number-prefix: ${ACT_NUMBER_PREFIX:АВР}
+  clients:
+    directory-url: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
+    parts-url: ${PARTS_SERVICE_URL:http://localhost:8082}
 
 info:
   app:

@@ -846,6 +846,31 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+  /api/v1/equipment/{id}/meter:
+    post:
+      operationId: raiseEquipmentMeter
+      tags:
+      - equipment
+      summary: Поднять текущую наработку по данным акта
+      description: Доступно любому пользователю; значения только увеличиваются. Вызывается act-service при сохранении и закрытии акта.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeterInput'
+      responses:
+        '204':
+          description: Готово
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   parameters:
     Page:
@@ -1644,3 +1669,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ImportRowError'
+    MeterInput:
+      type: object
+      properties:
+        hours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+        km:
+          type:
+          - number
+          - 'null'
+          minimum: 0

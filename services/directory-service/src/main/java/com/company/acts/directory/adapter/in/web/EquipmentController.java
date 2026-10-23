@@ -6,6 +6,7 @@ import com.company.acts.common.web.paging.PageResponse;
 import com.company.acts.directory.application.DirectoryImportService;
 import com.company.acts.directory.application.EquipmentService;
 import com.company.acts.directory.application.command.EquipmentCommand;
+import com.company.acts.directory.application.command.MeterCommand;
 import com.company.acts.directory.application.view.EquipmentView;
 import jakarta.validation.Valid;
 import java.io.IOException;
@@ -68,6 +69,13 @@ class EquipmentController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     void delete(@PathVariable UUID id) {
         equipment.delete(id);
+    }
+
+    /** Поднять наработку по данным акта; значения только увеличиваются. */
+    @PostMapping("/{id}/meter")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void raiseMeter(@PathVariable UUID id, @Valid @RequestBody MeterCommand command) {
+        equipment.raiseMeter(id, command.hours(), command.km());
     }
 
     @PostMapping("/import")

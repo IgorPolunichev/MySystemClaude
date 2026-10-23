@@ -79,6 +79,32 @@ public class EquipmentService {
         return get(id);
     }
 
+    /**
+     * Поднять текущую наработку по данным акта (раздел 2 SPEC.md). Доступно любому пользователю, но только
+     * увеличивает значения — уменьшить наработку так нельзя.
+     */
+    @Transactional
+    public void raiseMeter(UUID id, java.math.BigDecimal hours, java.math.BigDecimal km) {
+        Equipment current = equipment.findById(id).orElseThrow(() -> NotFoundException.of("Техника", id));
+        java.math.BigDecimal newHours = max(current.currentHours(), hours);
+        java.math.BigDecimal newKm = max(current.currentKm(), km);
+        if (java.util.Objects.equals(newHours, current.currentHours())
+                && java.util.Objects.equals(newKm, current.currentKm())) {
+            return;
+        }
+        equipment.save(new Equipment(id, current.version(), current.organizationId(), current.departmentId(),
+                current.equipmentTypeId(), current.brand(), current.model(), current.serialNumber(),
+                current.garageNumber(), current.plateNumber(), current.meterType(), newHours, newKm, current.year(),
+                current.notes()));
+    }
+
+    private static java.math.BigDecimal max(java.math.BigDecimal current, java.math.BigDecimal candidate) {
+        if (candidate == null) {
+            return current;
+        }
+        return current == null || candidate.compareTo(current) > 0 ? candidate : current;
+    }
+
     @PreAuthorize(Roles.CAN_EDIT)
     @Transactional
     public void delete(UUID id) {

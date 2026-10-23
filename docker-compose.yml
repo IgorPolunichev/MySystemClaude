@@ -185,6 +185,9 @@ services:
       DB_NAME: acts
       DB_USER: acts
       DB_PASSWORD: acts
+      # act-service берёт снимки техники и инженеров из справочников и добавляет позиции в каталог
+      DIRECTORY_SERVICE_URL: http://directory-service:8081
+      PARTS_SERVICE_URL: http://parts-service:8082
     ports:
       - "8083:8083"
     depends_on:
