@@ -1,0 +1,207 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — файлы (media-service)
+  version: 1.0.0
+  description: Загрузка фото и выдача оригиналов и превью. Принимаются JPEG и PNG до 20 МБ; браузер заранее сжимает фото.
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/media:
+    post:
+      operationId: uploadMedia
+      tags:
+      - media
+      summary: Загрузить фото
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              - ownerType
+              - ownerId
+              properties:
+                file:
+                  type: string
+                  format: binary
+                ownerType:
+                  type: string
+                  enum:
+                  - ACT_PHOTO
+                ownerId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Загружено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/media/{id}:
+    get:
+      operationId: getMedia
+      tags:
+      - media
+      summary: Сведения о файле
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/media/{id}/content:
+    get:
+      operationId: getMediaContent
+      tags:
+      - media
+      summary: 'Содержимое: оригинал или превью 400 px'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: variant
+        in: query
+        schema:
+          type: string
+          enum:
+          - original
+          - thumbnail
+          default: original
+      responses:
+        '200':
+          description: Изображение
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Media:
+      type: object
+      required:
+      - id
+      - ownerType
+      - ownerId
+      - contentType
+      - sizeBytes
+      - width
+      - height
+      properties:
+        id:
+          type: string
+          format: uuid
+        ownerType:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        originalFilename:
+          type:
+          - string
+          - 'null'
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        width:
+          type: integer
+        height:
+          type: integer
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы
