@@ -1,0 +1,108 @@
+spring:
+  application:
+    name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/acts}
+          jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/acts/protocol/openid-connect/certs}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          # Маршрутизация по ресурсу (docs/assumptions.md, решение этапа 0 № 2).
+          # Новый модуль = новые строки здесь, существующие маршруты не меняются.
+          routes:
+          - id: directory-service
+            uri: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
+            predicates:
+              - Path=/api/v1/organizations/**,/api/v1/departments/**,/api/v1/equipment/**,/api/v1/equipment-types/**,/api/v1/engineers/**,/api/v1/service-departments/**
+          - id: directory-service-system
+            uri: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
+            predicates:
+              - Path=/api/v1/system/directory/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: parts-service
+            uri: ${PARTS_SERVICE_URL:http://localhost:8082}
+            predicates:
+              - Path=/api/v1/parts/**,/api/v1/units/**
+          - id: parts-service-system
+            uri: ${PARTS_SERVICE_URL:http://localhost:8082}
+            predicates:
+              - Path=/api/v1/system/parts/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: act-service
+            uri: ${ACT_SERVICE_URL:http://localhost:8083}
+            predicates:
+              - Path=/api/v1/acts/**,/api/v1/work-templates/**
+          - id: act-service-system
+            uri: ${ACT_SERVICE_URL:http://localhost:8083}
+            predicates:
+              - Path=/api/v1/system/act/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: media-service
+            uri: ${MEDIA_SERVICE_URL:http://localhost:8084}
+            predicates:
+              - Path=/api/v1/media/**
+          - id: media-service-system
+            uri: ${MEDIA_SERVICE_URL:http://localhost:8084}
+            predicates:
+              - Path=/api/v1/system/media/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: document-service
+            uri: ${DOCUMENT_SERVICE_URL:http://localhost:8085}
+            predicates:
+              - Path=/api/v1/documents/**,/api/v1/form-profiles/**
+          - id: document-service-system
+            uri: ${DOCUMENT_SERVICE_URL:http://localhost:8085}
+            predicates:
+              - Path=/api/v1/system/document/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: analytics-service
+            uri: ${ANALYTICS_SERVICE_URL:http://localhost:8086}
+            predicates:
+              - Path=/api/v1/analytics/**,/api/v1/norms/**,/api/v1/calendar/**
+          - id: analytics-service-system
+            uri: ${ANALYTICS_SERVICE_URL:http://localhost:8086}
+            predicates:
+              - Path=/api/v1/system/analytics/info
+            filters:
+              - SetPath=/api/v1/system/info
+          - id: mail-service
+            uri: ${MAIL_SERVICE_URL:http://localhost:8087}
+            predicates:
+              - Path=/api/v1/mail/**,/api/v1/contacts/**,/api/v1/contact-groups/**,/api/v1/email-templates/**
+          - id: mail-service-system
+            uri: ${MAIL_SERVICE_URL:http://localhost:8087}
+            predicates:
+              - Path=/api/v1/system/mail/info
+            filters:
+              - SetPath=/api/v1/system/info
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+info:
+  app:
+    name: api-gateway
+    version: "@project.version@"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true

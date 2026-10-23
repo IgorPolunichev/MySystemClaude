@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:acts:events:envelope",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": ["eventId", "eventType", "eventVersion", "occurredAt", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": { "type": "string" },
+    "eventVersion": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "actorId": { "type": ["string", "null"] },
+    "correlationId": { "type": ["string", "null"] },
+    "aggregateId": { "type": ["string", "null"], "format": "uuid" },
+    "payload": { "type": "object" }
+  },
+  "additionalProperties": true
+}

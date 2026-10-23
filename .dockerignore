@@ -1,0 +1,8 @@
+**/target
+frontend
+docs
+infra
+.git
+.github
+**/node_modules
+*.md

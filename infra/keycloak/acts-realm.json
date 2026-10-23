@@ -1,0 +1,131 @@
+{
+  "realm": "acts",
+  "displayName": "Сервисные акты",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "ru",
+    "en"
+  ],
+  "defaultLocale": "ru",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 36000,
+  "ssoSessionMaxLifespan": 604800,
+  "offlineSessionIdleTimeout": 604800,
+  "roles": {
+    "realm": [
+      {
+        "name": "ENGINEER",
+        "description": "Сервисный инженер"
+      },
+      {
+        "name": "DEPARTMENT_HEAD",
+        "description": "Руководитель отдела"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Администратор"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "acts-frontend",
+      "name": "Сервисные акты — веб-интерфейс",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:5173"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:5173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "engineer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Иван",
+      "lastName": "Петров",
+      "email": "engineer@example.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "engineer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ENGINEER"
+      ]
+    },
+    {
+      "username": "engineer2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Сергей",
+      "lastName": "Кузнецов",
+      "email": "engineer2@example.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "engineer2",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ENGINEER"
+      ]
+    },
+    {
+      "username": "head",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Андрей",
+      "lastName": "Смирнов",
+      "email": "head@example.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "head",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "DEPARTMENT_HEAD"
+      ]
+    },
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Ольга",
+      "lastName": "Иванова",
+      "email": "admin@example.local",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ]
+}
