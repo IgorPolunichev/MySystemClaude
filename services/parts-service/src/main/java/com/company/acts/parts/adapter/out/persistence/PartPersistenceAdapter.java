@@ -48,7 +48,7 @@ class PartPersistenceAdapter implements PartRepository, UnitRepository {
                 .where("lower(coalesce(e.manufacturer, '')) = :manufacturer", "manufacturer",
                         manufacturer == null ? "" : manufacturer.strip().toLowerCase(java.util.Locale.ROOT));
         return filter.query(em, "select e from PartJpaEntity e" + filter.clause(), PartJpaEntity.class)
-                .setMaxResults(1).getResultStream().findFirst().map(PartPersistenceAdapter::toDomain);
+                .setMaxResults(1).getResultList().stream().findFirst().map(PartPersistenceAdapter::toDomain);
     }
 
     @Override

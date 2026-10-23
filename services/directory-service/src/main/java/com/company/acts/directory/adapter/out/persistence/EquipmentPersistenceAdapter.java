@@ -55,7 +55,7 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
         JpqlFilter filter = new JpqlFilter().where("e.deletedAt is null").where("e.id = :id", "id", id);
         return filter.query(em, "select e, coalesce(o.shortName, o.name), d.name, t.name" + VIEW_FROM + filter.clause(),
                         Object[].class)
-                .getResultStream().findFirst().map(EquipmentPersistenceAdapter::toView);
+                .getResultList().stream().findFirst().map(EquipmentPersistenceAdapter::toView);
     }
 
     @Override

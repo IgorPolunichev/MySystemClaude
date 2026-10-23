@@ -43,7 +43,7 @@ class EngineerPersistenceAdapter implements EngineerRepository {
     public Optional<EngineerView> findViewById(UUID id) {
         JpqlFilter filter = new JpqlFilter().where("e.deletedAt is null").where("e.id = :id", "id", id);
         return filter.query(em, "select e, s.name" + VIEW_FROM + filter.clause(), Object[].class)
-                .getResultStream().findFirst().map(EngineerPersistenceAdapter::toView);
+                .getResultList().stream().findFirst().map(EngineerPersistenceAdapter::toView);
     }
 
     @Override
