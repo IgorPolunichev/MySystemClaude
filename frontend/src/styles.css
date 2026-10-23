@@ -145,3 +145,111 @@ body {
   outline: 2px solid var(--amber);
   outline-offset: 2px;
 }
+
+/* ---------- Реестры и формы (этап 2) ---------- */
+
+.section-tabs {
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.toolbar-spacer {
+  flex: 1;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.narrow-panel {
+  max-width: 720px;
+}
+
+.cell-strong {
+  font-weight: 500;
+}
+
+.cell-muted {
+  font-size: 12px;
+  color: var(--muted, #6b7785);
+}
+
+.theme-root[data-theme='dark'] .cell-muted {
+  color: #93a0ad;
+}
+
+/* Номера техники и каталожные номера: моноширинные цифры легче сверять с табличкой на машине. */
+.cell-codes,
+.input-code {
+  font-family: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.cell-codes {
+  font-size: 13px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.tree-actions {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tree-row:hover .tree-actions,
+.tree-row:focus-within .tree-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tree-actions {
+    opacity: 1;
+  }
+}
+
+.credentials {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: 4px;
+}
+
+.credentials > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ant-table-row {
+  vertical-align: top;
+}
+
+@media (max-width: 600px) {
+  .toolbar > *:not(.toolbar-spacer) {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .toolbar-spacer {
+    display: none;
+  }
+}

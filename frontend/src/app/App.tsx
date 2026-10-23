@@ -3,7 +3,7 @@ import { BrowserRouter, Link, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from 'react-oidc-context';
 import { App as AntApp, Button, ConfigProvider, Result } from 'antd';
-import ruRU from 'antd/locale/ru_RU';
+import ruRU from 'antd/es/locale/ru_RU';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ru';
 import { useTranslation } from 'react-i18next';
