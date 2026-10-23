@@ -1,0 +1,147 @@
+:root {
+  --graphite: #1d2630;
+  --amber: #d99a1e;
+  --canvas: #eef1f4;
+  --surface: #ffffff;
+  --line: #d6dce2;
+  color-scheme: light;
+}
+
+.theme-root[data-theme='dark'] {
+  --canvas: #12171c;
+  --surface: #1a2129;
+  --line: #2b3640;
+  color-scheme: dark;
+}
+
+html,
+body,
+#root,
+.theme-root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+
+.fullscreen-center {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.app-shell {
+  min-height: 100%;
+}
+
+.app-sider {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* Шильдик: фирменный знак в стиле заводской таблички на технике. */
+.nameplate {
+  margin: 16px 14px 12px;
+  padding: 10px 12px 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #273340;
+  border: 1px solid #3a4856;
+  border-left: 6px solid var(--amber);
+  border-radius: 3px;
+  color: #ffffff;
+}
+
+.nameplate-code {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+}
+
+.nameplate-name {
+  font-size: 12px;
+  color: #b8c2cc;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top, 0px);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header-spacer {
+  flex: 1;
+}
+
+.user-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.app-content {
+  padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.page {
+  max-width: 1400px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-title.ant-typography {
+  margin: 0 0 16px;
+  font-weight: 600;
+}
+
+.page-head .page-title.ant-typography {
+  margin-bottom: 0;
+}
+
+.page-intro.ant-typography {
+  margin: 8px 0 16px;
+  max-width: 72ch;
+}
+
+.page-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+@media (max-width: 991px) {
+  .app-content {
+    padding: 16px 12px;
+  }
+  .app-header {
+    padding-left: 8px;
+    padding-right: 12px;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}

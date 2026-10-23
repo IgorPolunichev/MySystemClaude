@@ -1,0 +1,82 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — системный API
+  version: 1.0.0
+  description: |
+    Служебные эндпоинты всех сервисов. Контракты пишутся до реализации (contract-first);
+    из них генерируется TypeScript-клиент фронтенда (Orval), а со следующих этапов — интерфейсы контроллеров Java.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/system/{service}/info:
+    get:
+      operationId: getSystemInfo
+      summary: Сведения о сервисе и текущем пользователе
+      tags: [system]
+      parameters:
+        - name: service
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/ServiceName'
+      responses:
+        '200':
+          description: Сервис доступен и принял токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemInfo'
+        '401':
+          description: Нет или недействителен токен
+        default:
+          description: Ошибка в формате RFC 7807
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ServiceName:
+      type: string
+      enum: [directory, parts, act, media, document, analytics, mail]
+    SystemInfo:
+      type: object
+      required: [service, version, serverTime, user, roles]
+      properties:
+        service:
+          type: string
+          example: act-service
+        version:
+          type: string
+          example: 0.1.0-SNAPSHOT
+        serverTime:
+          type: string
+          format: date-time
+        user:
+          type: string
+          example: engineer
+        roles:
+          type: array
+          items:
+            type: string
+          example: [ENGINEER]
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string

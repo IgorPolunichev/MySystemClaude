@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: services
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - api-gateway:8080
+          - directory-service:8081
+          - parts-service:8082
+          - act-service:8083
+          - media-service:8084
+          - document-service:8085
+          - analytics-service:8086
+          - mail-service:8087
