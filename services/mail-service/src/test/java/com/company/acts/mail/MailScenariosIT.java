@@ -159,7 +159,7 @@ class MailScenariosIT extends PostgresIntegrationTest {
         assertThat(mail.journal(closed, 0, 10)).first().satisfies(m -> assertThat(m.status()).isEqualTo(MessageStatus.SENT));
         String payload = jdbc.queryForObject("select payload::text from outbox where aggregate_id = ? and event_type = 'EmailSent'",
                 String.class, queued.id());
-        assertThat(payload).contains(closed.toString()).contains(open.toString()).contains("\"mode\":\"SMTP\"");
+        assertThat(payload).contains(closed.toString()).contains(open.toString()).containsPattern("\"mode\":\\s*\"SMTP\"");
     }
 
     @Test
