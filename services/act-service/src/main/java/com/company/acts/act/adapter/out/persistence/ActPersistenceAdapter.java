@@ -172,7 +172,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
      */
     @Override
     public PageResult<ActSummary> search(ActSearchQuery q, PageQuery page) {
-        StringBuilder where = new StringBuilder(" where true");
+        StringBuilder where = new StringBuilder(" where true ");
         MapSqlParameterSource params = new MapSqlParameterSource();
         String text = q.text() == null || q.text().isBlank() ? null : q.text().strip();
         if (text != null) {
