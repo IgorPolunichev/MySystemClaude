@@ -1,0 +1,713 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — продуктивные часы и нормы (analytics-service)
+  version: 1.0.0
+  description: 'Дашборд, нормы, производственный календарь. Права: инженер — только себя, руководитель — свой отдел, администратор — всех.'
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/analytics/dashboard:
+    get:
+      operationId: getDashboard
+      tags:
+      - dashboard
+      summary: Продуктивные часы, нормы и % за период
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: Начало периода
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: Конец периода
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Отдел
+      - name: engineerId
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+        style: form
+        explode: true
+        description: Инженеры
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Организация-заказчик
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/analytics/dashboard/export:
+    get:
+      operationId: exportDashboard
+      tags:
+      - dashboard
+      summary: Таблица дашборда в Excel
+      parameters:
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: Начало периода
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: Конец периода
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Отдел
+      - name: engineerId
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            type: string
+            format: uuid
+        style: form
+        explode: true
+        description: Инженеры
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Организация-заказчик
+      responses:
+        '200':
+          description: Файл .xlsx
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+  /api/v1/analytics/series:
+    get:
+      operationId: getSeries
+      tags:
+      - dashboard
+      summary: Часы инженера по дням или неделям
+      parameters:
+      - name: engineerId
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: ''
+      - name: from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: ''
+      - name: to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+        description: ''
+      - name: granularity
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - day
+          - week
+          default: day
+        description: ''
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Point'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/analytics/rebuild:
+    post:
+      operationId: rebuildAnalytics
+      tags:
+      - dashboard
+      summary: Полная пересборка из act-service (администратор)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RebuildResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/norms:
+    get:
+      operationId: getNorms
+      tags:
+      - norms
+      summary: Нормы на месяц
+      parameters:
+      - name: month
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+        description: ГГГГ-ММ
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NormMonth'
+  /api/v1/norms/engineers/{engineerId}/{month}:
+    put:
+      operationId: setEngineerNorm
+      tags:
+      - norms
+      parameters:
+      - name: engineerId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: month
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoursInput'
+      responses:
+        '200':
+          description: Сохранено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/norms/departments/{departmentId}/{month}:
+    put:
+      operationId: setDepartmentNorm
+      tags:
+      - norms
+      parameters:
+      - name: departmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: month
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoursInput'
+      responses:
+        '200':
+          description: Сохранено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/norms/departments/{departmentId}/{month}/engineers:
+    post:
+      operationId: setNormForAllEngineers
+      tags:
+      - norms
+      summary: Задать норму всем инженерам отдела
+      parameters:
+      - name: departmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: month
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoursInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Count'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/norms/{month}/copy-previous:
+    post:
+      operationId: copyPreviousNorms
+      tags:
+      - norms
+      summary: Скопировать нормы прошлого месяца (администратор)
+      parameters:
+      - name: month
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{4}-\d{2}$
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Count'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/calendar/{year}:
+    get:
+      operationId: getCalendar
+      tags:
+      - calendar
+      summary: Производственный календарь года
+      parameters:
+      - name: year
+        in: path
+        required: true
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarYear'
+  /api/v1/calendar/days/{date}:
+    put:
+      operationId: setCalendarDay
+      tags:
+      - calendar
+      summary: Исключение календаря (администратор)
+      parameters:
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CalendarInput'
+      responses:
+        '200':
+          description: Сохранено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Scope:
+      type: string
+      enum:
+      - SELF
+      - DEPARTMENT
+      - ALL
+    EngineerRow:
+      type: object
+      required:
+      - engineerId
+      - fullName
+      - factHours
+      - percent
+      - acts
+      - machines
+      properties:
+        engineerId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        departmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        departmentName:
+          type:
+          - string
+          - 'null'
+        normHours:
+          type:
+          - number
+          - 'null'
+        factHours:
+          type: number
+        percent:
+          type: integer
+        acts:
+          type: integer
+        machines:
+          type: integer
+    DepartmentRow:
+      type: object
+      required:
+      - departmentId
+      - name
+      - normComputed
+      - factHours
+      - percent
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        normHours:
+          type:
+          - number
+          - 'null'
+        normComputed:
+          type: boolean
+        factHours:
+          type: number
+        percent:
+          type: integer
+    Thresholds:
+      type: object
+      required:
+      - red
+      - yellow
+      properties:
+        red:
+          type: integer
+        yellow:
+          type: integer
+    Dashboard:
+      type: object
+      required:
+      - from
+      - to
+      - engineers
+      - departments
+      - thresholds
+      - scope
+      properties:
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+        engineers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EngineerRow'
+        departments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepartmentRow'
+        thresholds:
+          $ref: '#/components/schemas/Thresholds'
+        scope:
+          $ref: '#/components/schemas/Scope'
+    Point:
+      type: object
+      required:
+      - start
+      - hours
+      properties:
+        start:
+          type: string
+          format: date
+        hours:
+          type: number
+    EngineerNorm:
+      type: object
+      required:
+      - engineerId
+      - fullName
+      properties:
+        engineerId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        departmentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        departmentName:
+          type:
+          - string
+          - 'null'
+        hours:
+          type:
+          - number
+          - 'null'
+    DepartmentNorm:
+      type: object
+      required:
+      - departmentId
+      - name
+      properties:
+        departmentId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        hours:
+          type:
+          - number
+          - 'null'
+        computedHours:
+          type:
+          - number
+          - 'null'
+    NormMonth:
+      type: object
+      required:
+      - month
+      - workingDays
+      - engineers
+      - departments
+      - canEdit
+      properties:
+        month:
+          type: string
+          description: ГГГГ-ММ
+        workingDays:
+          type: integer
+        engineers:
+          type: array
+          items:
+            $ref: '#/components/schemas/EngineerNorm'
+        departments:
+          type: array
+          items:
+            $ref: '#/components/schemas/DepartmentNorm'
+        canEdit:
+          type: boolean
+    HoursInput:
+      type: object
+      properties:
+        hours:
+          type:
+          - number
+          - 'null'
+          minimum: 0
+          maximum: 744
+          description: null — удалить норму
+    Count:
+      type: object
+      required:
+      - count
+      properties:
+        count:
+          type: integer
+    CalendarDay:
+      type: object
+      required:
+      - date
+      - working
+      properties:
+        date:
+          type: string
+          format: date
+        working:
+          type: boolean
+    MonthSummary:
+      type: object
+      required:
+      - month
+      - workingDays
+      properties:
+        month:
+          type: string
+        workingDays:
+          type: integer
+    CalendarYear:
+      type: object
+      required:
+      - year
+      - exceptions
+      - months
+      properties:
+        year:
+          type: integer
+        exceptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CalendarDay'
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthSummary'
+    CalendarInput:
+      type: object
+      properties:
+        working:
+          type:
+          - boolean
+          - 'null'
+          description: false — выходной/праздник, true — рабочий выходной, null — по общему правилу
+        comment:
+          type:
+          - string
+          - 'null'
+          maxLength: 200
+    RebuildResult:
+      type: object
+      required:
+      - acts
+      - timeEntries
+      properties:
+        acts:
+          type: integer
+        timeEntries:
+          type: integer
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы

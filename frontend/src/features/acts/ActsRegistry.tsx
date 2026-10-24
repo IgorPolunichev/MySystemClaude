@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   App,
   AutoComplete,
@@ -99,9 +99,20 @@ function Highlight({ text }: { text: string }) {
 export function ActsRegistry() {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
-  const [filters, setFilters] = useState<RegistryFilters>({ mine: true });
+  // Переход с дашборда: /acts?engineerId=…&from=…&to=… — акты инженера за период.
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<RegistryFilters>(() =>
+    searchParams.get('engineerId')
+      ? {
+          mine: false,
+          engineerId: searchParams.get('engineerId') ?? undefined,
+          from: searchParams.get('from') ?? undefined,
+          to: searchParams.get('to') ?? undefined,
+        }
+      : { mine: true },
+  );
   const [searchText, setSearchText] = useState('');
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(() => !!searchParams.get('engineerId'));
   const [page, setPage] = useState({ page: 0, size: 20, sort: undefined as string | undefined });
   const [newOpen, setNewOpen] = useState(false);
   const [saved, setSaved] = useState<SavedFilter[]>(loadSavedFilters);

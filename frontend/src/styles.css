@@ -603,3 +603,78 @@ body {
   border: 1px dashed var(--line);
   border-radius: 4px;
 }
+
+/* ---------- Дашборд продуктивных часов (этап 7) ---------- */
+.section-title.ant-typography {
+  margin: 20px 0 10px;
+}
+
+.gauge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.gauge-card {
+  text-align: center;
+}
+
+.gauge-card.active {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(217, 154, 30, 0.35);
+}
+
+.gauge-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gauge-sub {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.gauge-numbers {
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge-tag {
+  margin-left: 6px;
+}
+
+.chart-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.calendar-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .calendar-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.month-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+  text-transform: capitalize;
+}
