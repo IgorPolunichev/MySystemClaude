@@ -220,7 +220,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         }
 
         Long total = jdbc().queryForObject("select count(*) from work_act w" + where, params, Long.class);
-        String rank = text != null ? "ts_rank_cd(w.search_vector, websearch_to_tsquery('russian', :q))" : "0";
+        String rank = text != null ? "ts_rank(w.search_vector, websearch_to_tsquery('russian', :q))" : "0";
         String headline = text != null
                 ? "ts_headline('russian', concat_ws(' — ', w.short_description, w.detailed_description, w.recommendations),"
                         + " websearch_to_tsquery('russian', :q),"
