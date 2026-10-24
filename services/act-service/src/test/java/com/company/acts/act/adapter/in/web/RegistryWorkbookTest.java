@@ -29,8 +29,8 @@ class RegistryWorkbookTest {
             assertThat(sheet.getRow(3).getCell(1).getStringCellValue()).isEqualTo("Закрыт");
             assertThat(sheet.getRow(3).getCell(3).getStringCellValue()).isEqualTo("05.10.2026 — 07.10.2026");
             assertThat(sheet.getRow(3).getCell(11).getNumericCellValue()).isEqualTo(9.5);
-            assertThat(sheet.getRow(4)).isNotNull();
-            assertThat(sheet.getRow(5)).isNull();
+            assertThat(sheet.getRow(4) != null).isTrue();
+            assertThat(sheet.getRow(5) == null).isTrue();
         }
     }
 }
