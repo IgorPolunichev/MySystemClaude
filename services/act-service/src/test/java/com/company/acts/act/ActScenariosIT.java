@@ -417,4 +417,49 @@ class ActScenariosIT extends PostgresIntegrationTest {
         UUID purged = cancelled.id();
         assertThatThrownBy(() -> acts.get(purged)).isInstanceOf(com.company.acts.common.core.NotFoundException.class);
     }
+
+    @Test
+    void fullTextSearchUsesMorphologyRankingAndPartNumbers() {
+        String author = user();
+        login(author);
+        String marker = "zq" + UUID.randomUUID().toString().substring(0, 6);
+        ActDetail a = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        a = acts.updateHeader(a.id(), new ActHeaderCommand(a.version(), a.equipment().id(), null, null, null, null, null,
+                "Замена форсунок", marker + " заменены четыре форсунки двигателя", null, null, null, null, null, null,
+                a.executor().id(), a.site().id()));
+        content.addPart(a.id(), new PartLineCommand(null, PartSource.CATALOG, UUID.randomUUID(), "Форсунка топливная",
+                "7E-6371", new BigDecimal("4"), "PCS", null, null));
+        ActDetail b = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        b = acts.updateHeader(b.id(), new ActHeaderCommand(b.version(), b.equipment().id(), null, null, null, null, null,
+                "Диагностика", marker + " проверены форсунки и насос", null, null, null, null, null, null,
+                b.executor().id(), b.site().id()));
+
+        // морфология: «форсунками» находит «форсунок» и «форсунки»; оба акта, акт с совпадением в кратком описании — выше
+        var found = acts.search(new ActSearchQuery("форсунками " + marker, null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null));
+        assertThat(found.items()).extracting(x -> x.id()).containsExactly(a.id(), b.id());
+        assertThat(found.items().get(1).highlight()).contains("[[");
+
+        // часть каталожного номера — и в общем поиске, и в фильтре по запчасти
+        assertThat(acts.search(new ActSearchQuery("6371", null, null, null, null, null, null, null),
+                PageQuery.of(0, 50, null)).items()).extracting(x -> x.id()).contains(a.id());
+        var byPart = acts.search(new ActSearchQuery(marker, null, null, null, null, null, null, null, null, "7e-63",
+                null, null), PageQuery.of(0, 10, null));
+        assertThat(byPart.items()).extracting(x -> x.id()).containsExactly(a.id());
+
+        // точное краткое описание, площадка, отметка о скане; сортировка по инженерам
+        var exact = acts.search(new ActSearchQuery(marker, null, null, null, null, null, null, null,
+                FakeDirectory.SITE_A, null, "Диагностика", false), PageQuery.of(0, 10, "engineerNames"));
+        assertThat(exact.items()).extracting(x -> x.id()).containsExactly(b.id());
+        assertThat(exact.items().get(0).siteName()).isEqualTo("Площадка А");
+
+        // ФИО инженера и подпись к фото тоже участвуют в поиске
+        assertThat(acts.search(new ActSearchQuery("уплотнение " + marker, null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items()).isEmpty();
+        photos.add(b.id(), UUID.randomUUID(), "Износ уплотнения насоса");
+        assertThat(acts.search(new ActSearchQuery("уплотнение " + marker, null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items()).extracting(x -> x.id()).containsExactly(b.id());
+        assertThat(acts.search(new ActSearchQuery("Инженер " + author, null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items()).extracting(x -> x.id()).contains(a.id(), b.id());
+    }
 }

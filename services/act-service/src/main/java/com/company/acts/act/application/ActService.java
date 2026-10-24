@@ -91,9 +91,7 @@ public class ActService {
     /** Реестр «мои акты»: где текущий пользователь участвует. */
     @Transactional(readOnly = true)
     public PageResult<ActSummary> searchMine(ActSearchQuery query, PageQuery page) {
-        CurrentUser user = users.current();
-        return acts.search(new ActSearchQuery(query.text(), query.statuses(), query.organizationId(),
-                query.equipmentId(), query.engineerId(), user.userId(), query.from(), query.to()), page);
+        return acts.search(query.withParticipant(users.current().userId()), page);
     }
 
     @Transactional(readOnly = true)
@@ -215,6 +213,7 @@ public class ActService {
         }
         act.open(numbers.next(LocalDate.now(clock).getYear(), act.site() == null ? null : act.site().code()));
         acts.save(act);
+        acts.refreshAggregates(id);
         history.append(id, "OPENED", act.number(), ctx.user().username());
         events.publish(EventTypes.ACT_UPDATED, id, Map.of("status", "OPEN", "number", act.number()));
         return get(id);

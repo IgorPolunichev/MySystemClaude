@@ -163,6 +163,7 @@ public class ActContentService {
         }
         PartLine line = toLine(c.id() != null ? c.id() : Uuid7.next(), actId, partLines.nextPosition(actId), c);
         partLines.save(line);
+        acts.refreshAggregates(actId);
         history.append(actId, "PART_ADDED", line.name(), ctx.user().username());
         return assembler.assemble(loader.load(actId));
     }
@@ -173,6 +174,7 @@ public class ActContentService {
         PartLine current = partLines.findById(lineId).filter(l -> l.actId().equals(actId))
                 .orElseThrow(() -> NotFoundException.of("Позиция", lineId));
         partLines.save(toLine(lineId, actId, current.position(), c));
+        acts.refreshAggregates(actId);
         return assembler.assemble(ctx);
     }
 
@@ -182,6 +184,7 @@ public class ActContentService {
         PartLine line = partLines.findById(lineId).filter(l -> l.actId().equals(actId))
                 .orElseThrow(() -> NotFoundException.of("Позиция", lineId));
         partLines.delete(lineId);
+        acts.refreshAggregates(actId);
         history.append(actId, "PART_REMOVED", line.name(), ctx.user().username());
         return assembler.assemble(loader.load(actId));
     }

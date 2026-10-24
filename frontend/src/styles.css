@@ -583,3 +583,23 @@ body {
 .attach-icon {
   font-size: 22px;
 }
+
+/* Реестр: найденные фрагменты и дополнительные фильтры (этап 6) */
+.search-snippet {
+  font-size: 12px;
+  line-height: 1.4;
+  opacity: 0.85;
+}
+
+.search-snippet mark {
+  padding: 0 2px;
+  border-radius: 2px;
+  background: rgba(217, 154, 30, 0.35);
+  color: inherit;
+}
+
+.more-filters {
+  padding: 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}

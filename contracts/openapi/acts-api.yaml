@@ -21,7 +21,8 @@ paths:
         required: false
         schema:
           type: string
-        description: Номер, краткое описание, организация, техника, инженеры
+        description: 'Полнотекстовый поиск по всему акту (русская морфология, websearch-синтаксис: "точная фраза", -исключить, or) и по части
+          номеров акта, техники и запчастей'
       - name: status
         in: query
         required: false
@@ -52,6 +53,31 @@ paths:
           type: string
           format: uuid
         description: Инженер-участник
+      - name: siteId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Площадка
+      - name: partNumber
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Часть каталожного номера запчасти
+      - name: shortDescription
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Краткое описание — точное совпадение
+      - name: signedScan
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Есть ли скан подписанного акта
       - name: from
         in: query
         required: false
@@ -79,7 +105,8 @@ paths:
         required: false
         schema:
           type: string
-        description: number, createdAt, periodStart, organizationName, shortDescription, totalHours, status; «-» — по убыванию; по умолчанию -createdAt
+        description: number, createdAt, periodStart, organizationName, equipmentTitle, shortDescription, engineerNames, totalHours, status; «-»
+          — по убыванию. По умолчанию — по релевантности при поиске, иначе -createdAt
       responses:
         '200':
           description: OK
@@ -109,6 +136,110 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '422':
           $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/export:
+    get:
+      operationId: exportActs
+      tags:
+      - acts
+      summary: Реестр актов в Excel (текущая выборка, до 5000 строк)
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+        description: 'Полнотекстовый поиск по всему акту (русская морфология, websearch-синтаксис: "точная фраза", -исключить, or) и по части
+          номеров акта, техники и запчастей'
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActStatus'
+        style: form
+        explode: true
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Организация
+      - name: equipmentId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Техника
+      - name: engineerId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Инженер-участник
+      - name: siteId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+        description: Площадка
+      - name: partNumber
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Часть каталожного номера запчасти
+      - name: shortDescription
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Краткое описание — точное совпадение
+      - name: signedScan
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Есть ли скан подписанного акта
+      - name: from
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+        description: Период работ с
+      - name: to
+        in: query
+        required: false
+        schema:
+          type: string
+          format: date
+        description: Период работ по
+      - name: mine
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Только акты, где я участвую
+      - name: sort
+        in: query
+        required: false
+        schema:
+          type: string
+        description: number, createdAt, periodStart, organizationName, equipmentTitle, shortDescription, engineerNames, totalHours, status; «-»
+          — по убыванию. По умолчанию — по релевантности при поиске, иначе -createdAt
+      responses:
+        '200':
+          description: Файл .xlsx
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
   /api/v1/acts/short-descriptions:
     get:
       operationId: listShortDescriptions
@@ -977,6 +1108,15 @@ components:
           format: date-time
         hasSignedScan:
           type: boolean
+        siteName:
+          type:
+          - string
+          - 'null'
+        highlight:
+          type:
+          - string
+          - 'null'
+          description: Фрагмент текста с совпадениями, выделенными [[ ]] (только при поиске)
     ActSummaryPage:
       type: object
       required:

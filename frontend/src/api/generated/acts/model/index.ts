@@ -30,6 +30,7 @@ export * from './badRequestResponse';
 export * from './captionInput';
 export * from './commentInput';
 export * from './conflictResponse';
+export * from './exportActsParams';
 export * from './forbiddenResponse';
 export * from './historyEntry';
 export * from './listActsParams';

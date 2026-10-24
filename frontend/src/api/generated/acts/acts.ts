@@ -32,6 +32,7 @@ import type {
   BadRequestResponse,
   CommentInput,
   ConflictResponse,
+  ExportActsParams,
   ForbiddenResponse,
   HistoryEntry,
   ListActsParams,
@@ -301,7 +302,134 @@ export const useCreateAct = <TError = BadRequestResponse | UnprocessableResponse
       > => {
       return useMutation(getCreateActMutationOptions(options), queryClient);
     }
-    export type listShortDescriptionsResponse200 = {
+    export type exportActsResponse200 = {
+  data: Blob
+  status: 200
+}
+
+export type exportActsResponseSuccess = (exportActsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type exportActsResponse = (exportActsResponseSuccess)
+
+export const getExportActsUrl = (params?: ExportActsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const explodeParameters = ["status"];
+
+    if (Array.isArray(value) && explodeParameters.includes(key)) {
+      value.forEach((v) => {
+        normalizedParams.append(key, v === null ? 'null' : String(v));
+      });
+      return;
+    }
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/acts/export?${stringifiedParams}` : `/api/v1/acts/export`
+}
+
+/**
+ * @summary Реестр актов в Excel (текущая выборка, до 5000 строк)
+ */
+export const exportActs = async (params?: ExportActsParams, options?: Parameters<typeof apiFetch>[1]): Promise<exportActsResponse> => {
+
+  return apiFetch<exportActsResponse>(getExportActsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getExportActsQueryKey = (params?: ExportActsParams,) => {
+    return [
+    `/api/v1/acts/export`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getExportActsQueryOptions = <TData = Awaited<ReturnType<typeof exportActs>>, TError = unknown>(params?: ExportActsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getExportActsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportActs>>> = ({ signal }) => exportActs(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ExportActsQueryResult = NonNullable<Awaited<ReturnType<typeof exportActs>>>
+export type ExportActsQueryError = unknown
+
+
+export function useExportActs<TData = Awaited<ReturnType<typeof exportActs>>, TError = unknown>(
+ params: undefined |  ExportActsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof exportActs>>,
+          TError,
+          Awaited<ReturnType<typeof exportActs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useExportActs<TData = Awaited<ReturnType<typeof exportActs>>, TError = unknown>(
+ params?: ExportActsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof exportActs>>,
+          TError,
+          Awaited<ReturnType<typeof exportActs>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useExportActs<TData = Awaited<ReturnType<typeof exportActs>>, TError = unknown>(
+ params?: ExportActsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Реестр актов в Excel (текущая выборка, до 5000 строк)
+ */
+
+export function useExportActs<TData = Awaited<ReturnType<typeof exportActs>>, TError = unknown>(
+ params?: ExportActsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportActs>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getExportActsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type listShortDescriptionsResponse200 = {
   data: string[]
   status: 200
 }

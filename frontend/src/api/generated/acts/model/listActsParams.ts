@@ -11,7 +11,7 @@ import type { SizeParameter } from './sizeParameter';
 
 export type ListActsParams = {
 /**
- * Номер, краткое описание, организация, техника, инженеры
+ * Полнотекстовый поиск по всему акту (русская морфология, websearch-синтаксис: "точная фраза", -исключить, or) и по части номеров акта, техники и запчастей
  */
 q?: string;
 status?: ActStatus[];
@@ -27,6 +27,22 @@ equipmentId?: string;
  * Инженер-участник
  */
 engineerId?: string;
+/**
+ * Площадка
+ */
+siteId?: string;
+/**
+ * Часть каталожного номера запчасти
+ */
+partNumber?: string;
+/**
+ * Краткое описание — точное совпадение
+ */
+shortDescription?: string;
+/**
+ * Есть ли скан подписанного акта
+ */
+signedScan?: boolean;
 /**
  * Период работ с
  */
@@ -51,7 +67,7 @@ page?: PageParameter;
  */
 size?: SizeParameter;
 /**
- * number, createdAt, periodStart, organizationName, shortDescription, totalHours, status; «-» — по убыванию; по умолчанию -createdAt
+ * number, createdAt, periodStart, organizationName, equipmentTitle, shortDescription, engineerNames, totalHours, status; «-» — по убыванию. По умолчанию — по релевантности при поиске, иначе -createdAt
  */
 sort?: string;
 };

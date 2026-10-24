@@ -34,4 +34,11 @@ export interface ActSummary {
   /** @nullable */
   updatedAt?: string | null;
   hasSignedScan: boolean;
+  /** @nullable */
+  siteName?: string | null;
+  /**
+     * Фрагмент текста с совпадениями, выделенными [[ ]] (только при поиске)
+     * @nullable
+     */
+  highlight?: string | null;
 }

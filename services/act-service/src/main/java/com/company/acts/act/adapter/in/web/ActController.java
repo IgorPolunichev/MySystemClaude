@@ -76,17 +76,65 @@ class ActController {
                                   @RequestParam(required = false) UUID organizationId,
                                   @RequestParam(required = false) UUID equipmentId,
                                   @RequestParam(required = false) UUID engineerId,
+                                  @RequestParam(required = false) UUID siteId,
+                                  @RequestParam(required = false) String partNumber,
+                                  @RequestParam(required = false) String shortDescription,
+                                  @RequestParam(required = false) Boolean signedScan,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                   @RequestParam(required = false) Boolean mine,
                                   @RequestParam(required = false) Integer page,
                                   @RequestParam(required = false) Integer size,
                                   @RequestParam(required = false) String sort) {
-        Set<ActStatus> statuses = status == null || status.isEmpty() ? null : EnumSet.copyOf(status);
-        ActSearchQuery query = new ActSearchQuery(q, statuses, organizationId, equipmentId, engineerId, null, from, to);
+        ActSearchQuery query = query(q, status, organizationId, equipmentId, engineerId, siteId, partNumber,
+                shortDescription, signedScan, from, to);
         PageQuery pageQuery = PageQuery.of(page, size, sort);
         var result = Boolean.TRUE.equals(mine) ? acts.searchMine(query, pageQuery) : acts.search(query, pageQuery);
         return new PageResponse<>(result.items(), result.page(), result.size(), result.totalElements());
+    }
+
+    /** Реестр в Excel: та же выборка, что на экране, до 5000 строк. */
+    @GetMapping("/export")
+    org.springframework.http.ResponseEntity<byte[]> export(@RequestParam(required = false) String q,
+                                  @RequestParam(required = false) List<ActStatus> status,
+                                  @RequestParam(required = false) UUID organizationId,
+                                  @RequestParam(required = false) UUID equipmentId,
+                                  @RequestParam(required = false) UUID engineerId,
+                                  @RequestParam(required = false) UUID siteId,
+                                  @RequestParam(required = false) String partNumber,
+                                  @RequestParam(required = false) String shortDescription,
+                                  @RequestParam(required = false) Boolean signedScan,
+                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                  @RequestParam(required = false) Boolean mine,
+                                  @RequestParam(required = false) String sort) {
+        ActSearchQuery query = query(q, status, organizationId, equipmentId, engineerId, siteId, partNumber,
+                shortDescription, signedScan, from, to);
+        List<ActSummary> rows = new java.util.ArrayList<>();
+        for (int p = 0; p < 25; p++) {
+            PageQuery pageQuery = PageQuery.of(p, PageQuery.MAX_SIZE, sort);
+            var chunk = Boolean.TRUE.equals(mine) ? acts.searchMine(query, pageQuery) : acts.search(query, pageQuery);
+            rows.addAll(chunk.items());
+            if (chunk.items().size() < PageQuery.MAX_SIZE) {
+                break;
+            }
+        }
+        String filter = q == null || q.isBlank() ? "" : "поиск «" + q.strip() + "»";
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.attachment()
+                                .filename("Реестр актов.xlsx", java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                .body(RegistryWorkbook.write(rows, filter));
+    }
+
+    private static ActSearchQuery query(String q, List<ActStatus> status, UUID organizationId, UUID equipmentId,
+                                        UUID engineerId, UUID siteId, String partNumber, String shortDescription,
+                                        Boolean signedScan, LocalDate from, LocalDate to) {
+        Set<ActStatus> statuses = status == null || status.isEmpty() ? null : EnumSet.copyOf(status);
+        return new ActSearchQuery(q, statuses, organizationId, equipmentId, engineerId, null, from, to, siteId,
+                partNumber, shortDescription, signedScan);
     }
 
     @GetMapping("/short-descriptions")

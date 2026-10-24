@@ -25,9 +25,11 @@ public class ActPhotoService {
     private final ActHistoryRepository history;
     private final ActLoader loader;
     private final ActDetailAssembler assembler;
+    private final com.company.acts.act.application.port.out.ActRepository acts;
 
     public ActPhotoService(PhotoRepository photos, ActHistoryRepository history, ActLoader loader,
-                           ActDetailAssembler assembler) {
+                           ActDetailAssembler assembler, com.company.acts.act.application.port.out.ActRepository acts) {
+        this.acts = acts;
         this.photos = photos;
         this.history = history;
         this.loader = loader;
@@ -41,6 +43,7 @@ public class ActPhotoService {
             return assembler.assemble(ctx);
         }
         ActPhoto photo = photos.save(new ActPhoto(Uuid7.next(), actId, mediaId, caption, photos.nextPosition(actId)));
+        acts.refreshAggregates(actId);
         history.append(actId, "PHOTO_ADDED", photo.caption(), ctx.user().username());
         return assembler.assemble(loader.load(actId));
     }
@@ -50,6 +53,7 @@ public class ActPhotoService {
         ActContext ctx = editable(actId);
         ActPhoto current = owned(actId, photoId);
         photos.save(new ActPhoto(photoId, actId, current.mediaId(), caption, current.position()));
+        acts.refreshAggregates(actId);
         return assembler.assemble(ctx);
     }
 
@@ -75,6 +79,7 @@ public class ActPhotoService {
         ActContext ctx = editable(actId);
         ActPhoto photo = owned(actId, photoId);
         photos.delete(photoId);
+        acts.refreshAggregates(actId);
         history.append(actId, "PHOTO_REMOVED", photo.caption(), ctx.user().username());
         return assembler.assemble(loader.load(actId));
     }

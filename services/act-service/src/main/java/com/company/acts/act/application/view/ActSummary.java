@@ -10,5 +10,6 @@ import java.util.UUID;
 public record ActSummary(UUID id, String number, ActStatus status, String organizationName, String departmentName,
                          String equipmentTitle, String equipmentNumbers, String shortDescription,
                          LocalDate periodStart, LocalDate periodEnd, BigDecimal totalHours, String engineerNames,
-                         Instant createdAt, Instant updatedAt, boolean hasSignedScan) {
+                         Instant createdAt, Instant updatedAt, boolean hasSignedScan, String siteName,
+                         String highlight) {
 }
