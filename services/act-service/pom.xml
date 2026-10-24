@@ -22,6 +22,11 @@
             <groupId>com.company.acts</groupId>
             <artifactId>common-events</artifactId>
         </dependency>
+        <!-- События через RabbitMQ (outbox → обменник acts.events), ADR 0014 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.company.acts</groupId>
             <artifactId>common-core</artifactId>

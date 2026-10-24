@@ -189,6 +189,7 @@ services:
       DIRECTORY_SERVICE_URL: http://directory-service:8081
       PARTS_SERVICE_URL: http://parts-service:8082
       MEDIA_SERVICE_URL: http://media-service:8084
+      OUTBOX_PUBLISH_ENABLED: "true"
     ports:
       - "8083:8083"
     depends_on:
@@ -265,6 +266,8 @@ services:
       DB_NAME: analytics
       DB_USER: analytics
       DB_PASSWORD: analytics
+      DIRECTORY_SERVICE_URL: http://directory-service:8081
+      ACT_SERVICE_URL: http://act-service:8083
     ports:
       - "8086:8086"
     depends_on:

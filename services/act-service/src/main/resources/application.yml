@@ -14,6 +14,11 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:acts}
+    password: ${RABBITMQ_PASSWORD:acts}
   mvc:
     problemdetails:
       enabled: true
@@ -32,6 +37,10 @@ server:
 
 app:
   version: "@project.version@"
+  outbox:
+    # Отправка событий из outbox в RabbitMQ (в Docker Compose включено)
+    publish-enabled: ${OUTBOX_PUBLISH_ENABLED:false}
+    publish-interval-ms: 1000
   acts:
     # Префикс номера акта: АВР-2026-000123
     number-prefix: ${ACT_NUMBER_PREFIX:АВР}

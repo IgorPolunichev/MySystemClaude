@@ -167,7 +167,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
 
     /**
      * Реестр актов на SQL PostgreSQL: полнотекстовый поиск ({@code websearch_to_tsquery('russian', …)}, ранжирование
-     * {@code ts_rank_cd}, подсветка {@code ts_headline}) плюс поиск по части номеров техники, акта и каталожных
+     * {@code ts_rank}, подсветка {@code ts_headline}) плюс поиск по части номеров техники, акта и каталожных
      * номеров запчастей — их пользователи вводят кусками. Фильтры добавляются только заданные.
      */
     @Override

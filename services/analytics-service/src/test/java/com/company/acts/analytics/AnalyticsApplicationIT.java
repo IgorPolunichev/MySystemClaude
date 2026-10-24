@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Контекст поднимается на реальном PostgreSQL, миграции Flyway применяются. Требуется Docker. */
-@SpringBootTest
+@SpringBootTest(properties = "spring.rabbitmq.listener.simple.auto-startup=false")
 class AnalyticsApplicationIT extends PostgresIntegrationTest {
 
     @Autowired

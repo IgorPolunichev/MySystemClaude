@@ -132,7 +132,7 @@ public class ActService {
                 author.position(), ParticipantRole.LEAD));
         acts.refreshAggregates(act.id());
         history.append(act.id(), "CREATED", null, user.username());
-        events.publish(EventTypes.ACT_CREATED, act.id(), Map.of("status", act.status().name()));
+        events.publish(EventTypes.ACT_CREATED, act.id(), actPayload(act, null));
         return get(act.id());
     }
 
@@ -195,7 +195,7 @@ public class ActService {
         acts.refreshAggregates(id);
         history.append(id, act.status() == ActStatus.CLOSED ? "UPDATED_AFTER_CLOSE" : "UPDATED", adminComment,
                 ctx.user().username());
-        events.publish(EventTypes.ACT_UPDATED, id, Map.of("afterClose", act.status() == ActStatus.CLOSED));
+        events.publish(EventTypes.ACT_UPDATED, id, actPayload(act, Map.of("afterClose", act.status() == ActStatus.CLOSED)));
         if (equipment != null && act.status() != ActStatus.DRAFT) {
             directory.raiseMeter(equipment.id(), act.meterHours(), act.meterKm());
         }
@@ -215,7 +215,7 @@ public class ActService {
         acts.save(act);
         acts.refreshAggregates(id);
         history.append(id, "OPENED", act.number(), ctx.user().username());
-        events.publish(EventTypes.ACT_UPDATED, id, Map.of("status", "OPEN", "number", act.number()));
+        events.publish(EventTypes.ACT_UPDATED, id, actPayload(act, null));
         return get(id);
     }
 
@@ -229,7 +229,7 @@ public class ActService {
         acts.save(act);
         history.append(id, "CLOSED", null, ctx.user().username());
         List<PartLine> lines = partLines.findByAct(id);
-        events.publish(EventTypes.ACT_CLOSED, id, Map.of("number", act.number()));
+        events.publish(EventTypes.ACT_CLOSED, id, actPayload(act, null));
         if (!lines.isEmpty()) {
             events.publish(EventTypes.PARTS_USED_IN_ACT, id, Map.of("number", act.number(), "lines",
                     lines.stream().map(ActService::partPayload).toList()));
@@ -249,7 +249,7 @@ public class ActService {
         ctx.act().reopen();
         acts.save(ctx.act());
         history.append(id, "REOPENED", text, ctx.user().username());
-        events.publish(EventTypes.ACT_REOPENED, id, Map.of("comment", text));
+        events.publish(EventTypes.ACT_REOPENED, id, actPayload(ctx.act(), Map.of("comment", text)));
         return get(id);
     }
 
@@ -264,7 +264,7 @@ public class ActService {
         ctx.act().cancel();
         acts.save(ctx.act());
         history.append(id, "CANCELLED", text, ctx.user().username());
-        events.publish(EventTypes.ACT_CANCELLED, id, Map.of("comment", text));
+        events.publish(EventTypes.ACT_CANCELLED, id, actPayload(ctx.act(), Map.of("comment", text)));
         return get(id);
     }
 
@@ -279,10 +279,7 @@ public class ActService {
         ctx.require(ctx.policy().canDelete(), ctx.act().status() == ActStatus.CLOSED
                 ? "Закрытый акт удалить нельзя — сначала администратор возвращает его в работу"
                 : "Удалить акт могут его автор, руководитель и администратор");
-        Map<String, Object> payload = new java.util.LinkedHashMap<>();
-        payload.put("number", ctx.act().number());
-        payload.put("status", ctx.act().status().name());
-        events.publish(EventTypes.ACT_DELETED, id, payload);
+        events.publish(EventTypes.ACT_DELETED, id, actPayload(ctx.act(), null));
         acts.delete(id);
     }
 
@@ -350,6 +347,23 @@ public class ActService {
                 new EquipmentSnapshot(e.id(), e.equipmentTypeName(), e.brand(), e.model(), e.serialNumber(),
                         e.garageNumber(), e.plateNumber(), meterType),
                 site);
+    }
+
+    /**
+     * Сведения об акте в каждом событии: потребителям (analytics-service) не нужно запрашивать акт отдельно
+     * (ADR 0014). Значения могут быть null.
+     */
+    static Map<String, Object> actPayload(WorkAct act, Map<String, Object> extra) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("status", act.status().name());
+        map.put("number", act.number());
+        map.put("organizationId", act.organization() == null ? null : act.organization().id().toString());
+        map.put("equipmentId", act.equipment() == null ? null : act.equipment().id().toString());
+        map.put("siteId", act.site() == null ? null : act.site().id().toString());
+        if (extra != null) {
+            map.putAll(extra);
+        }
+        return map;
     }
 
     private static Map<String, Object> partPayload(PartLine line) {
