@@ -14,6 +14,8 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+    # Шаблоны писем в миграциях содержат ${...} FreeMarker — Flyway не должен подставлять их как свои переменные
+    placeholder-replacement: false
   mail:
     host: ${SMTP_HOST:localhost}
     port: ${SMTP_PORT:1025}
