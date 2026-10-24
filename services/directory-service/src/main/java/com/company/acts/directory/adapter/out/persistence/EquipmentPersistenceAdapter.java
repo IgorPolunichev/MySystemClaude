@@ -24,11 +24,13 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
     private static final String VIEW_FROM = " from EquipmentJpaEntity e"
             + " join OrganizationJpaEntity o on o.id = e.organizationId"
             + " join EquipmentTypeJpaEntity t on t.id = e.equipmentTypeId"
-            + " left join DepartmentJpaEntity d on d.id = e.departmentId";
+            + " left join DepartmentJpaEntity d on d.id = e.departmentId"
+            + " left join SiteJpaEntity st on st.id = e.siteId";
 
     private static final SortWhitelist SORT = new SortWhitelist(Map.of(
             "organizationName", "lower(coalesce(o.shortName, o.name))",
             "departmentName", "lower(d.name)",
+            "siteName", "lower(st.name)",
             "equipmentTypeName", "lower(t.name)",
             "brand", "lower(e.brand)",
             "model", "lower(e.model)",
@@ -53,7 +55,7 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
     @Override
     public Optional<EquipmentView> findViewById(UUID id) {
         JpqlFilter filter = new JpqlFilter().where("e.deletedAt is null").where("e.id = :id", "id", id);
-        return filter.query(em, "select e, coalesce(o.shortName, o.name), d.name, t.name" + VIEW_FROM + filter.clause(),
+        return filter.query(em, "select e, coalesce(o.shortName, o.name), d.name, t.name, st.name" + VIEW_FROM + filter.clause(),
                         Object[].class)
                 .getResultList().stream().findFirst().map(EquipmentPersistenceAdapter::toView);
     }
@@ -87,7 +89,7 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
                 .search(text, "coalesce(e.serialNumber, '')", "coalesce(e.garageNumber, '')",
                         "coalesce(e.plateNumber, '')", "e.brand", "e.model", "concat(e.brand, ' ', e.model)");
         long total = filter.query(em, "select count(e)" + VIEW_FROM + filter.clause(), Long.class).getSingleResult();
-        List<EquipmentView> items = filter.query(em, "select e, coalesce(o.shortName, o.name), d.name, t.name"
+        List<EquipmentView> items = filter.query(em, "select e, coalesce(o.shortName, o.name), d.name, t.name, st.name"
                         + VIEW_FROM + filter.clause() + SORT.orderBy(page.sortField(), page.ascending()), Object[].class)
                 .setFirstResult(page.offset())
                 .setMaxResults(page.size())
@@ -123,6 +125,7 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
         }
         entity.setOrganizationId(q.organizationId());
         entity.setDepartmentId(q.departmentId());
+        entity.setSiteId(q.siteId());
         entity.setEquipmentTypeId(q.equipmentTypeId());
         entity.setBrand(q.brand());
         entity.setModel(q.model());
@@ -147,14 +150,14 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
 
     static Equipment toDomain(EquipmentJpaEntity e) {
         return new Equipment(e.getId(), e.getVersion(), e.getOrganizationId(), e.getDepartmentId(),
-                e.getEquipmentTypeId(), e.getBrand(), e.getModel(), e.getSerialNumber(), e.getGarageNumber(),
+                e.getSiteId(), e.getEquipmentTypeId(), e.getBrand(), e.getModel(), e.getSerialNumber(), e.getGarageNumber(),
                 e.getPlateNumber(), e.getMeterType(), e.getCurrentHours(), e.getCurrentKm(), e.getYear(), e.getNotes());
     }
 
     private static EquipmentView toView(Object[] row) {
         EquipmentJpaEntity e = (EquipmentJpaEntity) row[0];
         return new EquipmentView(e.getId(), e.getOrganizationId(), (String) row[1], e.getDepartmentId(),
-                (String) row[2], e.getEquipmentTypeId(), (String) row[3], e.getBrand(), e.getModel(),
+                (String) row[2], e.getSiteId(), (String) row[4], e.getEquipmentTypeId(), (String) row[3], e.getBrand(), e.getModel(),
                 e.getSerialNumber(), e.getGarageNumber(), e.getPlateNumber(), e.getMeterType(), e.getCurrentHours(),
                 e.getCurrentKm(), e.getYear(), e.getNotes(), e.getVersion(), e.getCreatedAt(), e.getUpdatedAt());
     }

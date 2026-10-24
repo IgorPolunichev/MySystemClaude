@@ -17,7 +17,7 @@ spring:
           - id: directory-service
             uri: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
             predicates:
-              - Path=/api/v1/organizations/**,/api/v1/departments/**,/api/v1/equipment/**,/api/v1/equipment-types/**,/api/v1/engineers/**,/api/v1/service-departments/**
+              - Path=/api/v1/organizations/**,/api/v1/departments/**,/api/v1/executors/**,/api/v1/sites/**,/api/v1/equipment/**,/api/v1/equipment-types/**,/api/v1/engineers/**,/api/v1/service-departments/**
           - id: directory-service-system
             uri: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
             predicates:

@@ -19,6 +19,8 @@ import com.company.acts.act.application.view.HistoryEntry;
 import com.company.acts.act.domain.ActStatus;
 import com.company.acts.act.domain.CurrentUser;
 import com.company.acts.act.domain.EquipmentSnapshot;
+import com.company.acts.act.domain.ExecutorSnapshot;
+import com.company.acts.act.domain.SiteSnapshot;
 import com.company.acts.act.domain.MeterType;
 import com.company.acts.act.domain.OrganizationSnapshot;
 import com.company.acts.act.domain.PartLine;
@@ -119,11 +121,14 @@ public class ActService {
         CurrentUser user = users.current();
         DirectoryClient.EngineerInfo author = directory.currentEngineer();
         WorkAct act = WorkAct.draft(command.id() != null ? command.id() : Uuid7.next(), author.id(), user.userId());
+        SiteSnapshot site = null;
         if (command.equipmentId() != null) {
             Snapshots s = snapshots(command.equipmentId());
             act.updateHeader(s.organization(), s.equipment(), null, null, null, null, null, null, null, null, null,
                     null, true, true);
+            site = s.site();
         }
+        act.assignParties(executorSnapshot(directory.defaultExecutor()), site);
         acts.save(act);
         participants.save(act.id(), new Participant(author.id(), author.keycloakUserId(), author.fullName(),
                 author.position(), ParticipantRole.LEAD));
@@ -149,24 +154,45 @@ public class ActService {
         WorkAct act = ctx.act();
         OrganizationSnapshot organization = act.organization();
         EquipmentSnapshot equipment = act.equipment();
+        SiteSnapshot site = act.site();
         UUID currentEquipmentId = equipment == null ? null : equipment.id();
-        if (!Objects.equals(c.equipmentId(), currentEquipmentId)) {
+        boolean equipmentChanged = !Objects.equals(c.equipmentId(), currentEquipmentId);
+        if (equipmentChanged) {
             if (c.equipmentId() == null) {
                 if (act.status() != ActStatus.DRAFT) {
                     throw new BusinessRuleException("equipmentId", "У открытого акта техника обязательна");
                 }
                 organization = null;
                 equipment = null;
+                site = null;
             } else {
                 Snapshots s = snapshots(c.equipmentId());
                 organization = s.organization();
                 equipment = s.equipment();
+                site = s.site();
             }
+        }
+        UUID currentSiteId = site == null ? null : site.id();
+        UUID previousSiteId = act.site() == null ? null : act.site().id();
+        if (c.siteId() != null && !c.siteId().equals(currentSiteId)) {
+            site = siteSnapshot(c.siteId(), organization, !c.siteId().equals(previousSiteId));
+        } else if (c.siteId() == null && !equipmentChanged) {
+            site = null;
+        }
+        ExecutorSnapshot executor = act.executor();
+        UUID currentExecutorId = executor == null ? null : executor.id();
+        if (c.executorId() != null && !c.executorId().equals(currentExecutorId)) {
+            DirectoryClient.ExecutorInfo info = directory.executor(c.executorId());
+            if (!info.active()) {
+                throw new BusinessRuleException("executorId", "Исполнитель «" + info.name() + "» заблокирован");
+            }
+            executor = executorSnapshot(info);
         }
         act.updateHeader(organization, equipment, c.meterHours(), c.meterKm(), c.location(), c.workStartDate(),
                 c.workEndDate(), c.shortDescription(), c.detailedDescription(), c.recommendations(),
                 c.customerRepName(), c.customerRepPosition(), c.hideRequisites() == null || c.hideRequisites(),
                 c.hideTravelTime() == null || c.hideTravelTime());
+        act.assignParties(executor, site);
         acts.save(act);
         acts.refreshAggregates(id);
         history.append(id, act.status() == ActStatus.CLOSED ? "UPDATED_AFTER_CLOSE" : "UPDATED", adminComment,
@@ -187,7 +213,7 @@ public class ActService {
         if (act.equipment() == null) {
             throw new BusinessRuleException("equipmentId", "Выберите технику, чтобы открыть акт");
         }
-        act.open(numbers.next(LocalDate.now(clock).getYear()));
+        act.open(numbers.next(LocalDate.now(clock).getYear(), act.site() == null ? null : act.site().code()));
         acts.save(act);
         history.append(id, "OPENED", act.number(), ctx.user().username());
         events.publish(EventTypes.ACT_UPDATED, id, Map.of("status", "OPEN", "number", act.number()));
@@ -243,12 +269,28 @@ public class ActService {
         return get(id);
     }
 
-    /** Удалить можно только черновик — у него ещё нет номера, поэтому в нумерации не остаётся пропусков. */
+    /**
+     * Удалить незакрытый акт (черновик, открытый или аннулированный) вместе с табелем, запчастями, фото и
+     * документами. Номер удалённого акта больше не выдаётся. Закрытый акт удалить нельзя — сначала его
+     * возвращает в работу администратор.
+     */
     @Transactional
     public void delete(UUID id) {
         ActContext ctx = loader.load(id);
-        ctx.require(ctx.policy().canDelete(), "Удалить можно только свой черновик");
+        ctx.require(ctx.policy().canDelete(), ctx.act().status() == ActStatus.CLOSED
+                ? "Закрытый акт удалить нельзя — сначала администратор возвращает его в работу"
+                : "Удалить акт могут его автор, руководитель и администратор");
+        Map<String, Object> payload = new java.util.LinkedHashMap<>();
+        payload.put("number", ctx.act().number());
+        payload.put("status", ctx.act().status().name());
+        events.publish(EventTypes.ACT_DELETED, id, payload);
         acts.delete(id);
+    }
+
+    /** Фоновая очистка: аннулированные акты, не менявшиеся дольше заданного срока. Возвращает число удалённых. */
+    @Transactional
+    public int purgeCancelled(java.time.Duration olderThan) {
+        return acts.deleteCancelledBefore(Instant.now(clock).minus(olderThan));
     }
 
     /** «Создать на основе»: копируются техника, описания, представитель заказчика и запчасти; время — нет. */
@@ -261,6 +303,7 @@ public class ActService {
         copy.updateHeader(from.organization(), from.equipment(), null, null, from.location(), null, null,
                 from.shortDescription(), from.detailedDescription(), null, from.customerRepName(),
                 from.customerRepPosition(), from.hideRequisites(), from.hideTravelTime());
+        copy.assignParties(from.executor() != null ? from.executor() : copy.executor(), from.site());
         acts.save(copy);
         int position = 1;
         for (PartLine line : partLines.findByAct(sourceId)) {
@@ -273,18 +316,41 @@ public class ActService {
         return get(copy.id());
     }
 
-    private record Snapshots(OrganizationSnapshot organization, EquipmentSnapshot equipment) {
+    private record Snapshots(OrganizationSnapshot organization, EquipmentSnapshot equipment, SiteSnapshot site) {
+    }
+
+    private static ExecutorSnapshot executorSnapshot(DirectoryClient.ExecutorInfo e) {
+        return e == null ? null : new ExecutorSnapshot(e.id(), e.name(), e.shortName(), e.inn(), e.kpp(), e.address(),
+                e.phone());
+    }
+
+    /** Площадка должна относиться к организации акта; заблокированную нельзя выбрать заново. */
+    private SiteSnapshot siteSnapshot(UUID siteId, OrganizationSnapshot organization, boolean newlySelected) {
+        DirectoryClient.SiteInfo s = directory.site(siteId);
+        if (organization == null || !s.organizationId().equals(organization.id())) {
+            throw new BusinessRuleException("siteId", "Площадка относится к другой организации");
+        }
+        if (newlySelected && !s.active()) {
+            throw new BusinessRuleException("siteId", "Площадка «" + s.name() + "» заблокирована");
+        }
+        return new SiteSnapshot(s.id(), s.name(), s.code(), s.address());
     }
 
     private Snapshots snapshots(UUID equipmentId) {
         DirectoryClient.EquipmentInfo e = directory.equipment(equipmentId);
         DirectoryClient.OrganizationInfo o = directory.organization(e.organizationId());
         MeterType meterType = e.meterType() == null ? MeterType.HOURS : MeterType.valueOf(e.meterType());
+        SiteSnapshot site = null;
+        if (e.siteId() != null) {
+            DirectoryClient.SiteInfo s = directory.site(e.siteId());
+            site = new SiteSnapshot(s.id(), s.name(), s.code(), s.address());
+        }
         return new Snapshots(
                 new OrganizationSnapshot(o.id(), o.name(), o.shortName(), o.inn(), o.kpp(), o.legalAddress(),
                         e.departmentId(), e.departmentName()),
                 new EquipmentSnapshot(e.id(), e.equipmentTypeName(), e.brand(), e.model(), e.serialNumber(),
-                        e.garageNumber(), e.plateNumber(), meterType));
+                        e.garageNumber(), e.plateNumber(), meterType),
+                site);
     }
 
     private static Map<String, Object> partPayload(PartLine line) {

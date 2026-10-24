@@ -5,7 +5,10 @@ import com.company.acts.media.domain.MediaObject;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -53,10 +56,15 @@ class MediaController {
     /** Оригинал или превью; кэшируется браузером — содержимое по id никогда не меняется. */
     @GetMapping("/{id}/content")
     ResponseEntity<byte[]> content(@PathVariable UUID id,
-                                   @RequestParam(defaultValue = "original") String variant) {
+                                   @RequestParam(defaultValue = "original") String variant,
+                                   @RequestParam(defaultValue = "false") boolean download) {
         MediaService.Content content = media.content(id, "thumbnail".equals(variant));
+        String filename = media.get(id).originalFilename();
+        ContentDisposition.Builder disposition = download ? ContentDisposition.attachment() : ContentDisposition.inline();
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(content.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition
+                        .filename(filename != null ? filename : id.toString(), StandardCharsets.UTF_8).build().toString())
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePrivate().immutable())
                 .eTag(content.etag())
                 .body(content.bytes());

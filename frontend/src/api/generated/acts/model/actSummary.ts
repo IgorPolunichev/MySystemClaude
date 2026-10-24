@@ -33,4 +33,5 @@ export interface ActSummary {
   createdAt?: string | null;
   /** @nullable */
   updatedAt?: string | null;
+  hasSignedScan: boolean;
 }

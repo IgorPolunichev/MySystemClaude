@@ -12,6 +12,8 @@ public record EquipmentView(
         String organizationName,
         UUID departmentId,
         String departmentName,
+        UUID siteId,
+        String siteName,
         UUID equipmentTypeId,
         String equipmentTypeName,
         String brand,

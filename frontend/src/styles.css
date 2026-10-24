@@ -570,3 +570,16 @@ body {
     gap: 8px;
   }
 }
+
+/* Документы акта */
+.attach-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.attach-icon {
+  font-size: 22px;
+}

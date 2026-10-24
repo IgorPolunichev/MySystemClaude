@@ -23,5 +23,7 @@ public record ActHeaderCommand(
         @Size(max = 200) String customerRepPosition,
         Boolean hideRequisites,
         Boolean hideTravelTime,
-        @Size(max = 1000) String adminComment) {
+        @Size(max = 1000) String adminComment,
+        UUID executorId,
+        UUID siteId) {
 }

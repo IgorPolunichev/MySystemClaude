@@ -52,14 +52,22 @@ class ActController {
     record PhotoOrderRequest(@NotNull List<UUID> photoIds) {
     }
 
+    record AddAttachmentRequest(@NotNull(message = "Не указан файл") UUID mediaId,
+                                com.company.acts.act.domain.AttachmentKind kind,
+                                @jakarta.validation.constraints.Size(max = 300) String comment) {
+    }
+
     private final ActService acts;
     private final ActContentService content;
     private final ActPhotoService photos;
+    private final com.company.acts.act.application.ActAttachmentService attachments;
 
-    ActController(ActService acts, ActContentService content, ActPhotoService photos) {
+    ActController(ActService acts, ActContentService content, ActPhotoService photos,
+                  com.company.acts.act.application.ActAttachmentService attachments) {
         this.acts = acts;
         this.content = content;
         this.photos = photos;
+        this.attachments = attachments;
     }
 
     @GetMapping
@@ -195,5 +203,15 @@ class ActController {
     @DeleteMapping("/{id}/photos/{photoId}")
     ActDetail deletePhoto(@PathVariable UUID id, @PathVariable UUID photoId) {
         return photos.delete(id, photoId);
+    }
+
+    @PostMapping("/{id}/attachments")
+    ActDetail addAttachment(@PathVariable UUID id, @Valid @RequestBody AddAttachmentRequest request) {
+        return attachments.add(id, request.mediaId(), request.kind(), request.comment());
+    }
+
+    @DeleteMapping("/{id}/attachments/{attachmentId}")
+    ActDetail deleteAttachment(@PathVariable UUID id, @PathVariable UUID attachmentId) {
+        return attachments.delete(id, attachmentId);
     }
 }

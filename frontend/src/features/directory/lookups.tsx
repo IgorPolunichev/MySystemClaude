@@ -4,6 +4,8 @@ import { useGetOrganization, useListOrganizations } from '../../api/generated/di
 import { useListOrganizationDepartments } from '../../api/generated/directory/departments';
 import { useListEquipmentTypes } from '../../api/generated/directory/equipment-types';
 import { useListServiceDepartments } from '../../api/generated/directory/service-departments';
+import { useListOrganizationSites } from '../../api/generated/directory/sites';
+import { useListExecutors } from '../../api/generated/directory/executors';
 import { ok } from '../../api/unwrap';
 import { departmentTree } from './departmentTree';
 
@@ -122,6 +124,59 @@ export function ServiceDepartmentSelect({
       placeholder={placeholder}
       allowClear={allowClear}
       style={style}
+    />
+  );
+}
+
+/**
+ * Площадка организации. Предлагаются только активные; уже выбранная заблокированная остаётся видимой
+ * с пометкой, чтобы не потерять значение при редактировании.
+ */
+export function SiteSelect({
+  organizationId,
+  value,
+  onChange,
+  placeholder = 'Площадка',
+  style,
+}: ValueProps & { organizationId?: string | null }) {
+  const { data, isFetching } = useListOrganizationSites(
+    organizationId ?? '',
+    { includeInactive: true },
+    { query: { enabled: !!organizationId } },
+  );
+  const sites = (ok(data) ?? []).filter((s) => s.active || s.id === value);
+  return (
+    <Select
+      value={value ?? undefined}
+      onChange={(v) => onChange?.(v)}
+      allowClear
+      loading={isFetching}
+      disabled={!organizationId}
+      placeholder={organizationId ? placeholder : 'Сначала выберите организацию'}
+      style={style}
+      options={sites.map((s) => ({
+        value: s.id,
+        label: `${s.name}${s.code ? ` [${s.code}]` : ''}${s.active ? '' : ' (заблокирована)'}`,
+      }))}
+    />
+  );
+}
+
+/** Исполнитель акта: активные компании; основной отмечен звёздочкой. */
+export function ExecutorSelect({ value, onChange, style }: ValueProps) {
+  const { data, isFetching } = useListExecutors({ includeInactive: true });
+  const list = (ok(data) ?? []).filter((e) => e.active || e.id === value);
+  return (
+    <Select
+      value={value ?? undefined}
+      onChange={(v) => onChange?.(v)}
+      loading={isFetching}
+      placeholder="Исполнитель"
+      style={style}
+      options={list.map((e) => ({
+        value: e.id,
+        label: `${e.isDefault ? '★ ' : ''}${e.shortName ?? e.name}${e.active ? '' : ' (заблокирован)'}`,
+      }))}
     />
   );
 }

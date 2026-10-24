@@ -18,12 +18,21 @@ import org.springframework.web.client.RestClient;
 class ActHttpSource implements ActSource {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record ActDto(UUID id, String number, String status, Instant createdAt, Instant closedAt, OrgDto organization,
+    record ActDto(UUID id, String number, String status, Instant createdAt, Instant closedAt, PartyDto executor,
+                  OrgDto organization, SiteDto site,
                   EqDto equipment, BigDecimal meterHours, BigDecimal meterKm, String location, LocalDate workStartDate,
                   LocalDate workEndDate, long calendarDays, String shortDescription, String detailedDescription,
                   String recommendations, String customerRepName, String customerRepPosition, boolean hideRequisites,
                   boolean hideTravelTime, List<PersonDto> engineers, List<TimeDto> timeEntries, List<PartDto> parts,
                   List<PhotoDto> photos) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record PartyDto(String name, String shortName, String inn, String kpp, String address, String phone) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record SiteDto(String name, String address) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -75,8 +84,11 @@ class ActHttpSource implements ActSource {
         }
         OrgDto o = a.organization();
         EqDto e = a.equipment();
+        PartyDto x = a.executor();
         return new ActData(a.id(), a.number(), a.status(), a.createdAt(), a.closedAt(),
+                x == null ? null : new Party(x.name(), x.shortName(), x.inn(), x.kpp(), x.address(), x.phone()),
                 o == null ? null : new Org(o.name(), o.shortName(), o.inn(), o.kpp(), o.legalAddress(), o.departmentName()),
+                a.site() == null ? null : new SiteRef(a.site().name(), a.site().address()),
                 e == null ? null : new Eq(e.typeName(), e.brand(), e.model(), e.serialNumber(), e.garageNumber(),
                         e.plateNumber(), e.meterType()),
                 a.meterHours(), a.meterKm(), a.location(), a.workStartDate(), a.workEndDate(), a.calendarDays(),

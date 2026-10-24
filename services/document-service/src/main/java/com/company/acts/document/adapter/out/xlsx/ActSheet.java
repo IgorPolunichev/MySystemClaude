@@ -26,13 +26,16 @@ final class ActSheet implements SheetRenderer {
         w.put(w.row(16), 0, LAST, "от " + Text.date(d.documentDate()), styles.subtitle);
         w.row(8);
 
+        section(w, "Стороны");
         keyValue(w, "Исполнитель", d.executor().name(), true);
-        keyValue(w, null, Text.requisites(d.hideRequisites(), d.executor().inn(), d.executor().kpp(),
+        keyValue(w, "Реквизиты исполнителя", Text.requisites(d.hideRequisites(), d.executor().inn(), d.executor().kpp(),
                 d.executor().address(), d.executor().phone()), false);
         if (d.customer() != null) {
             keyValue(w, "Заказчик", d.customer().name(), true);
-            keyValue(w, null, Text.requisites(d.hideRequisites(), d.customer().inn(), d.customer().kpp(),
-                    d.customer().address(), null), false);
+            keyValue(w, "Реквизиты заказчика", Text.requisites(d.hideRequisites(), d.customer().inn(),
+                    d.customer().kpp(), d.customer().address(), null), false);
+            keyValue(w, "Производственная площадка", d.customer().site(), false);
+            keyValue(w, "Адрес площадки", d.customer().siteAddress(), false);
             keyValue(w, "Подразделение", d.customer().department(), false);
         }
 
@@ -56,6 +59,7 @@ final class ActSheet implements SheetRenderer {
         section(w, "Выполненные работы");
         keyValue(w, "Краткое описание", d.shortDescription(), true);
         if (d.detailedDescription() != null) {
+            w.put(w.row(16), 0, LAST, "Подробное описание выполненных работ", styles.label);
             Row row = w.row(w.heightFor(d.detailedDescription(), 0, LAST, 30));
             w.put(row, 0, LAST, d.detailedDescription(), styles.text);
         }
@@ -69,7 +73,7 @@ final class ActSheet implements SheetRenderer {
         if (value == null || value.isBlank()) {
             return;
         }
-        Row row = w.row(w.heightFor(value, 2, LAST, 16));
+        Row row = w.row(w.heightForAll(16, new Object[] {value, 2, LAST}, new Object[] {label, 0, 1}));
         w.put(row, 0, 1, label, w.styles.label);
         w.put(row, 2, LAST, value, bold ? w.styles.valueBold : w.styles.value);
     }
@@ -93,7 +97,7 @@ final class ActSheet implements SheetRenderer {
         BigDecimal hours = BigDecimal.ZERO;
         BigDecimal travelHours = BigDecimal.ZERO;
         for (ActPrintData.Engineer e : d.engineers()) {
-            Row row = w.row(w.heightFor(e.position(), 2, 2, 16));
+            Row row = w.row(w.heightForAll(16, new Object[] {e.fullName(), 1, 1}, new Object[] {e.position(), 2, 2}));
             w.put(row, 0, 0, String.valueOf(n++), w.styles.cellCenter);
             w.put(row, 1, 1, e.fullName(), w.styles.cell);
             w.put(row, 2, 2, e.position(), w.styles.cell);
@@ -112,7 +116,7 @@ final class ActSheet implements SheetRenderer {
     private static void parts(SheetWriter w, ActPrintData d) {
         section(w, "Использованные запчасти и материалы");
         if (d.parts().isEmpty()) {
-            w.put(w.row(16), 0, LAST, "Не использовались", w.styles.value);
+            w.put(w.row(16), 0, LAST, "Не использовались", w.styles.cell);
             return;
         }
         Row head = w.row(28);
@@ -122,7 +126,7 @@ final class ActSheet implements SheetRenderer {
         w.put(head, 4, 4, "Кол-во", w.styles.tableHead);
         w.put(head, 5, 5, "Ед. изм.", w.styles.tableHead);
         for (ActPrintData.Part p : d.parts()) {
-            Row row = w.row(w.heightFor(p.name(), 1, 1, 16));
+            Row row = w.row(w.heightForAll(16, new Object[] {p.name(), 1, 1}, new Object[] {p.catalogNumber(), 2, 3}));
             w.put(row, 0, 0, String.valueOf(p.position()), w.styles.cellCenter);
             w.put(row, 1, 1, p.name(), w.styles.cell);
             w.put(row, 2, 3, p.catalogNumber(), w.styles.cell);

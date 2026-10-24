@@ -62,4 +62,21 @@ class MediaScenariosIT extends PostgresIntegrationTest {
         assertThatThrownBy(() -> media.upload("x.jpg", new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
                 "UNKNOWN", owner, "u")).isInstanceOf(BusinessRuleException.class);
     }
+
+    @Test
+    void attachmentsAcceptDocumentsWithoutThumbnail() {
+        UUID actId = UUID.randomUUID();
+        byte[] pdf = "%PDF-1.7\n1 0 obj << >> endobj\n%%EOF".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        var stored = media.upload("Акт подписан.pdf", pdf, "ACT_ATTACHMENT", actId, "engineer");
+        assertThat(stored.contentType()).isEqualTo("application/pdf");
+        assertThat(stored.thumbnailKey()).isNull();
+        assertThat(media.content(stored.id(), false).bytes()).isEqualTo(pdf);
+        assertThatThrownBy(() -> media.content(stored.id(), true))
+                .isInstanceOf(com.company.acts.common.core.NotFoundException.class);
+        // PDF нельзя загрузить как фото техотчёта
+        assertThatThrownBy(() -> media.upload("x.pdf", pdf, "ACT_PHOTO", actId, "engineer"))
+                .isInstanceOf(BusinessRuleException.class);
+        assertThatThrownBy(() -> media.upload("x.exe", "MZ-not-allowed".getBytes(), "ACT_ATTACHMENT", actId, "u"))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("PDF");
+    }
 }

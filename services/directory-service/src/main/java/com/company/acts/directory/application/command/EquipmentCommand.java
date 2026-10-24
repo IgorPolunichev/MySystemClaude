@@ -13,6 +13,7 @@ public record EquipmentCommand(
         Long version,
         @NotNull(message = "Укажите организацию") UUID organizationId,
         UUID departmentId,
+        UUID siteId,
         @NotNull(message = "Укажите тип техники") UUID equipmentTypeId,
         @NotBlank(message = "Укажите марку") @Size(max = 100) String brand,
         @NotBlank(message = "Укажите модель") @Size(max = 100) String model,

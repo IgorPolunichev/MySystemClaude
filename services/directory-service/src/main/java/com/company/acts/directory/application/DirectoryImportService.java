@@ -52,6 +52,7 @@ public class DirectoryImportService {
     public static final List<ImportColumn> EQUIPMENT_COLUMNS = List.of(
             ImportColumn.required("organization", "ИНН или наименование организации, которая уже есть в справочнике", "Организация", "Заказчик", "ИНН организации"),
             ImportColumn.optional("department", "Название подразделения; если такого нет — будет создано", "Подразделение", "Отдел", "Участок"),
+            ImportColumn.optional("site", "Производственная площадка; если такой нет — будет создана", "Площадка", "Производственная площадка"),
             ImportColumn.required("type", "Например: Карьерный самосвал, Легковой автомобиль; новый тип будет создан", "Тип техники", "Тип"),
             ImportColumn.required("brand", "Например: CAT, Toyota", "Марка", "Производитель"),
             ImportColumn.required("model", "Например: 777G, Camry", "Модель"),
@@ -71,8 +72,9 @@ public class DirectoryImportService {
     private final OrganizationRepository organizations;
     private final DepartmentRepository departments;
     private final EquipmentRepository equipment;
+    private final SiteService siteService;
 
-    public DirectoryImportService(OrganizationService organizationService, DepartmentService departmentService,
+    public DirectoryImportService(SiteService siteService, OrganizationService organizationService, DepartmentService departmentService,
                                   EquipmentTypeService typeService, EquipmentService equipmentService,
                                   OrganizationRepository organizations, DepartmentRepository departments,
                                   EquipmentRepository equipment) {
@@ -83,6 +85,7 @@ public class DirectoryImportService {
         this.organizations = organizations;
         this.departments = departments;
         this.equipment = equipment;
+        this.siteService = siteService;
     }
 
     public byte[] organizationTemplate() {
@@ -92,7 +95,7 @@ public class DirectoryImportService {
     }
 
     public byte[] equipmentTemplate() {
-        return ImportTemplateWriter.write("Техника", EQUIPMENT_COLUMNS, List.of("7707083893", "Автотранспортный цех",
+        return ImportTemplateWriter.write("Техника", EQUIPMENT_COLUMNS, List.of("7707083893", "Автотранспортный цех", "Площадка А",
                 "Карьерный самосвал", "CAT", "777G", "CAT0777GTBY00123", "45", "", "моточасы", "12500", "", "2019", ""));
     }
 
@@ -135,6 +138,7 @@ public class DirectoryImportService {
                         row.text("organization").toLowerCase(Locale.ROOT), key -> findOrganization(row.text("organization")));
                 UUID departmentId = row.text("department") == null ? null
                         : findOrCreateDepartment(organization.id(), row.text("department"));
+                UUID siteId = row.text("site") == null ? null : findOrCreateSite(organization.id(), row.text("site"));
                 UUID typeId = typeService.findOrCreate(row.text("type")).id();
                 String serial = Strings.normalizeCode(row.text("serialNumber"));
                 String garage = Strings.normalizeCode(row.text("garageNumber"));
@@ -149,7 +153,7 @@ public class DirectoryImportService {
                     existing = equipment.findByPlateNumber(organization.id(), plate);
                 }
                 EquipmentCommand command = new EquipmentCommand(null, existing.map(Equipment::version).orElse(null),
-                        organization.id(), departmentId, typeId, row.text("brand"), row.text("model"), serial, garage,
+                        organization.id(), departmentId, siteId, typeId, row.text("brand"), row.text("model"), serial, garage,
                         plate, parseMeterType(row.text("meterType")), row.decimal("hours"), row.decimal("km"),
                         row.integer("year"), row.text("notes"));
                 if (existing.isPresent()) {
@@ -181,6 +185,15 @@ public class DirectoryImportService {
                 .findFirst()
                 .orElseGet(() -> departmentService.create(new DepartmentCommand(null, null, organizationId, null,
                         name, null)).id());
+    }
+
+    private UUID findOrCreateSite(UUID organizationId, String name) {
+        return siteService.listByOrganization(organizationId, true).stream()
+                .filter(s -> s.name().equalsIgnoreCase(name.strip()))
+                .map(com.company.acts.directory.domain.Site::id)
+                .findFirst()
+                .orElseGet(() -> siteService.create(new com.company.acts.directory.application.command.SiteCommand(
+                        null, null, organizationId, name, null, null, true)).id());
     }
 
     static MeterType parseMeterType(String value) {

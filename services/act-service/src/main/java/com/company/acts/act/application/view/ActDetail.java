@@ -18,7 +18,9 @@ public record ActDetail(
         Long version,
         String number,
         ActStatus status,
+        Executor executor,
         Organization organization,
+        Site site,
         Equipment equipment,
         BigDecimal meterHours,
         BigDecimal meterKm,
@@ -44,10 +46,24 @@ public record ActDetail(
         List<TimeEntryView> timeEntries,
         List<PartLineView> parts,
         List<PhotoView> photos,
+        List<AttachmentView> attachments,
         BigDecimal totalHours,
         BigDecimal totalTravelHours,
         List<String> missingForClose,
         Permissions permissions) {
+
+    public record Executor(UUID id, String name, String shortName, String inn, String kpp, String address,
+                           String phone) {
+    }
+
+    public record Site(UUID id, String name, String code, String address) {
+    }
+
+    /** Документ акта; скачать — /api/v1/media/{mediaId}/content?download=true. */
+    public record AttachmentView(UUID id, UUID mediaId, com.company.acts.act.domain.AttachmentKind kind,
+                                 String fileName, String contentType, long sizeBytes, String comment,
+                                 String uploadedBy, Instant uploadedAt, boolean canDelete) {
+    }
 
     public record Organization(UUID id, String name, String shortName, String inn, String kpp, String legalAddress,
                                UUID departmentId, String departmentName) {
@@ -84,6 +100,7 @@ public record ActDetail(
 
     /** Что можно текущему пользователю — интерфейс показывает только доступные действия. */
     public record Permissions(boolean canEdit, boolean canEditAnyTime, boolean canOpen, boolean canClose,
-                              boolean canReopen, boolean canCancel, boolean canDelete, boolean requiresAdminComment) {
+                              boolean canReopen, boolean canCancel, boolean canDelete, boolean requiresAdminComment,
+                              boolean canAttach) {
     }
 }

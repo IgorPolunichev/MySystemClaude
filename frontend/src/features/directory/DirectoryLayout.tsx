@@ -4,11 +4,13 @@ import { EquipmentPage } from './EquipmentPage';
 import { EngineersPage } from './EngineersPage';
 import { OrganizationsPage } from './OrganizationsPage';
 import { EquipmentTypesPage, ServiceDepartmentsPage } from './ReferencePages';
+import { ExecutorsPage } from './ExecutorsPage';
 
 const SECTIONS = [
   { value: 'equipment', label: 'Техника', element: <EquipmentPage /> },
   { value: 'organizations', label: 'Организации', element: <OrganizationsPage /> },
   { value: 'engineers', label: 'Инженеры', element: <EngineersPage /> },
+  { value: 'executors', label: 'Исполнители', element: <ExecutorsPage /> },
   { value: 'equipment-types', label: 'Типы техники', element: <EquipmentTypesPage /> },
   { value: 'service-departments', label: 'Отделы сервиса', element: <ServiceDepartmentsPage /> },
 ];

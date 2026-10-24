@@ -24,7 +24,9 @@ class ActDocumentServiceTest {
         UUID photoB = UUID.randomUUID();
         ActSource.ActData act = new ActSource.ActData(UUID.randomUUID(), "АВР-2026-000001", "CLOSED",
                 Instant.parse("2026-10-05T07:00:00Z"), Instant.parse("2026-10-07T20:30:00Z"),
+                new ActSource.Party("ООО «Исполнитель»", null, "7707083893", null, "г. Москва", null),
                 new ActSource.Org("АО «Тест»", "АО «Т»", "7707083893", null, null, "Цех"),
+                new ActSource.SiteRef("Площадка А", "Воркута"),
                 new ActSource.Eq("Самосвал", "CAT", "777G", "SN1", "45", null, "HOURS"),
                 new BigDecimal("100"), null, null, LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 7), 3, "ТО", null,
                 null, null, null, true, true,
@@ -52,7 +54,8 @@ class ActDocumentServiceTest {
         ActPrintData d = service.toPrintData(act);
 
         assertThat(d.documentDate()).isEqualTo(LocalDate.of(2026, 10, 7));
-        assertThat(d.executor().inn()).isNull();
+        assertThat(d.executor().name()).isEqualTo("ООО «Исполнитель»");
+        assertThat(d.customer().site()).isEqualTo("Площадка А");
         ActPrintData.Engineer petrov = d.engineers().get(0);
         assertThat(petrov.lead()).isTrue();
         assertThat(petrov.days()).isEqualTo(2);

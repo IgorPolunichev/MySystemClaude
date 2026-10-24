@@ -83,7 +83,7 @@ export const getUploadMediaUrl = () => {
 }
 
 /**
- * @summary Загрузить фото
+ * @summary Загрузить фото (ACT_PHOTO: JPEG, PNG) или документ (ACT_ATTACHMENT: PDF, JPEG, PNG, TIFF, DOCX, XLSX, ZIP), до 25 МБ
  */
 export const uploadMedia = async (uploadMediaBody: UploadMediaBody, options?: Parameters<typeof apiFetch>[1]): Promise<uploadMediaResponse> => {
     const formData = new FormData();
@@ -139,7 +139,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UploadMediaMutationVariables = {data: UploadMediaBody}
 
     /**
- * @summary Загрузить фото
+ * @summary Загрузить фото (ACT_PHOTO: JPEG, PNG) или документ (ACT_ATTACHMENT: PDF, JPEG, PNG, TIFF, DOCX, XLSX, ZIP), до 25 МБ
  */
 export const useUploadMedia = <TError = UnprocessableResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadMedia>>, TError,UploadMediaMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

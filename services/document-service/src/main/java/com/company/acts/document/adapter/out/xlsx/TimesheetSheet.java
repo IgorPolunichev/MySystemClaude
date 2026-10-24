@@ -46,7 +46,7 @@ final class TimesheetSheet implements SheetRenderer {
         BigDecimal hours = BigDecimal.ZERO;
         BigDecimal travelHours = BigDecimal.ZERO;
         for (ActPrintData.TimeRow t : d.timeRows()) {
-            Row row = w.row(w.heightFor(t.breaks(), 4, 4, 16));
+            Row row = w.row(w.heightForAll(16, new Object[] {t.breaks(), 4, 4}, new Object[] {t.engineer(), 1, 1}));
             w.put(row, 0, 0, Text.date(t.date()), styles.cellCenter);
             w.put(row, 1, 1, t.engineer(), styles.cell);
             w.put(row, 2, 2, t.start(), styles.cellCenter);
@@ -69,6 +69,6 @@ final class TimesheetSheet implements SheetRenderer {
         }
         w.row(8);
         w.put(w.row(28), 0, last, "Продуктивные часы рассчитаны как продолжительность работы за вычетом перерывов. "
-                + "Окончание раньше начала означает окончание работы на следующие сутки.", styles.caption);
+                + "Окончание раньше начала означает окончание работы на следующие сутки.", styles.note);
     }
 }

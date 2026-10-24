@@ -16,6 +16,7 @@ import { sortParam } from '../../shared/lib/table';
 import { useRoles } from '../../shared/lib/useRoles';
 import { ImportDialog } from '../../shared/ui/ImportDialog';
 import { DepartmentsPanel } from './DepartmentsPanel';
+import { SitesPanel } from './SitesPanel';
 import { OrganizationForm } from './OrganizationForm';
 
 /** Реестр организаций-заказчиков с карточкой и деревом подразделений. */
@@ -165,6 +166,7 @@ export function OrganizationsPage() {
               <Descriptions.Item label="Почта">{card.email ?? '—'}</Descriptions.Item>
               {card.notes && <Descriptions.Item label="Примечание">{card.notes}</Descriptions.Item>}
             </Descriptions>
+            <SitesPanel organizationId={card.id} />
             <DepartmentsPanel organizationId={card.id} />
           </Space>
         )}

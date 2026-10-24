@@ -15,6 +15,7 @@ public record Equipment(
         Long version,
         UUID organizationId,
         UUID departmentId,
+        UUID siteId,
         UUID equipmentTypeId,
         String brand,
         String model,

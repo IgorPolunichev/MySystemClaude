@@ -7,6 +7,7 @@ import com.company.acts.common.core.Uuid7;
 import com.company.acts.media.application.port.out.ImageProcessor;
 import com.company.acts.media.application.port.out.MediaRepository;
 import com.company.acts.media.application.port.out.ObjectStorage;
+import com.company.acts.media.domain.FileType;
 import com.company.acts.media.domain.ImageType;
 import com.company.acts.media.domain.MediaObject;
 import java.security.MessageDigest;
@@ -26,9 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class MediaService {
 
-    public static final long MAX_SIZE = 20L * 1024 * 1024;
+    public static final long MAX_SIZE = 25L * 1024 * 1024;
     public static final int THUMBNAIL_SIDE = 400;
-    private static final Set<String> OWNER_TYPES = Set.of("ACT_PHOTO");
+    /** Фото техотчёта: только JPEG и PNG. */
+    public static final String ACT_PHOTO = "ACT_PHOTO";
+    /** Документы акта: сканы, письма, протоколы. */
+    public static final String ACT_ATTACHMENT = "ACT_ATTACHMENT";
+    private static final Set<String> OWNER_TYPES = Set.of(ACT_PHOTO, ACT_ATTACHMENT);
 
     /** Содержимое файла для отдачи клиенту. */
     public record Content(byte[] bytes, String contentType, String etag) {
@@ -50,25 +55,29 @@ public class MediaService {
             throw new BusinessRuleException("file", "Файл пустой");
         }
         if (content.length > MAX_SIZE) {
-            throw new BusinessRuleException("file", "Файл больше 20 МБ");
+            throw new BusinessRuleException("file", "Файл больше 25 МБ");
         }
         if (!OWNER_TYPES.contains(ownerType)) {
             throw new BusinessRuleException("ownerType", "Неизвестное назначение файла: " + ownerType);
         }
-        ImageType type = ImageType.detect(content);
-        ImageProcessor.ImageInfo info = images.inspect(content);
-        byte[] thumbnail = images.thumbnail(content, THUMBNAIL_SIDE);
-
+        FileType type = ACT_PHOTO.equals(ownerType) ? photoType(content) : FileType.detect(content, filename);
+        int width = 0;
+        int height = 0;
         UUID id = Uuid7.next();
         String prefix = ownerType.toLowerCase() + "/" + ownerId + "/" + id;
         String objectKey = prefix + "." + type.extension();
-        String thumbnailKey = prefix + "-thumb.jpg";
+        String thumbnailKey = null;
+        if (type.image()) {
+            ImageProcessor.ImageInfo info = images.inspect(content);
+            width = info.width();
+            height = info.height();
+            thumbnailKey = prefix + "-thumb.jpg";
+            storage.put(thumbnailKey, images.thumbnail(content, THUMBNAIL_SIDE), FileType.JPEG.contentType());
+        }
         storage.put(objectKey, content, type.contentType());
-        storage.put(thumbnailKey, thumbnail, ImageType.JPEG.contentType());
 
         MediaObject object = new MediaObject(id, ownerType, ownerId, Strings.trimToNull(filename), type.contentType(),
-                content.length, info.width(), info.height(), sha256(content), objectKey, thumbnailKey, user,
-                Instant.now());
+                content.length, width, height, sha256(content), objectKey, thumbnailKey, user, Instant.now());
         return media.save(object);
     }
 
@@ -77,13 +86,20 @@ public class MediaService {
         return media.findById(id).orElseThrow(() -> NotFoundException.of("Файл", id));
     }
 
-    /** Оригинал или превью ({@code thumbnail}). */
+    /** Оригинал или превью ({@code thumbnail}; есть только у изображений). */
     @Transactional(readOnly = true)
     public Content content(UUID id, boolean thumbnail) {
         MediaObject object = get(id);
+        if (thumbnail && object.thumbnailKey() == null) {
+            throw new NotFoundException("У файла нет превью");
+        }
         String key = thumbnail ? object.thumbnailKey() : object.objectKey();
-        return new Content(storage.get(key), thumbnail ? ImageType.JPEG.contentType() : object.contentType(),
+        return new Content(storage.get(key), thumbnail ? FileType.JPEG.contentType() : object.contentType(),
                 "\"" + object.sha256().substring(0, 16) + (thumbnail ? "-t" : "") + "\"");
+    }
+
+    private static FileType photoType(byte[] content) {
+        return ImageType.detect(content) == ImageType.PNG ? FileType.PNG : FileType.JPEG;
     }
 
     private static String sha256(byte[] content) {

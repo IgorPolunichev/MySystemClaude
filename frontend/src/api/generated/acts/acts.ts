@@ -699,7 +699,7 @@ export const getDeleteActUrl = (id: string,) => {
 }
 
 /**
- * @summary Удалить черновик
+ * @summary Удалить незакрытый акт (черновик, открытый, аннулированный)
  */
 export const deleteAct = async (id: string, options?: Parameters<typeof apiFetch>[1]): Promise<deleteActResponse> => {
 
@@ -751,7 +751,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteActMutationVariables = {id: string}
 
     /**
- * @summary Удалить черновик
+ * @summary Удалить незакрытый акт (черновик, открытый, аннулированный)
  */
 export const useDeleteAct = <TError = ForbiddenResponse | NotFoundResponse,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAct>>, TError,DeleteActMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

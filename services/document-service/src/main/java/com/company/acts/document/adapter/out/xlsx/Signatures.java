@@ -3,23 +3,27 @@ package com.company.acts.document.adapter.out.xlsx;
 import com.company.acts.document.application.model.ActPrintData;
 import org.apache.poi.ss.usermodel.Row;
 
-/** Блок подписей: слева представитель заказчика, справа ответственный сервисный инженер. */
+/**
+ * Блок подписей: слева представитель заказчика (должность и ФИО из акта), справа представитель исполнителя —
+ * ответственный инженер, только ФИО.
+ */
 final class Signatures {
 
     private Signatures() {
     }
 
-    /** Колонки [leftFrom..leftTo] — заказчик, [rightFrom..rightTo] — инженер. */
+    /** Колонки [leftFrom..leftTo] — заказчик, [rightFrom..rightTo] — исполнитель. */
     static void write(SheetWriter w, ActPrintData d, int leftFrom, int leftTo, int rightFrom, int rightTo) {
         ActPrintData.Engineer lead = d.engineers().stream().filter(ActPrintData.Engineer::lead).findFirst()
                 .orElse(d.engineers().isEmpty() ? null : d.engineers().getFirst());
         w.row(10);
         Row head = w.row(18);
-        w.put(head, leftFrom, leftTo, "Представитель заказчика", w.styles.section);
-        w.put(head, rightFrom, rightTo, "Сервисный инженер", w.styles.section);
-        Row who = w.row(30);
+        w.put(head, leftFrom, leftTo, "Представитель заказчика", w.styles.signatureHead);
+        w.put(head, rightFrom, rightTo, "Представитель исполнителя", w.styles.signatureHead);
+        Row who = w.row(w.heightForAll(30, new Object[] {joined(d.customerRepPosition(), d.customerRepName()), leftFrom, leftTo},
+                new Object[] {lead == null ? null : lead.fullName(), rightFrom, rightTo}));
         w.put(who, leftFrom, leftTo, joined(d.customerRepPosition(), d.customerRepName()), w.styles.signature);
-        w.put(who, rightFrom, rightTo, lead == null ? null : joined(lead.position(), lead.fullName()), w.styles.signature);
+        w.put(who, rightFrom, rightTo, lead == null ? null : lead.fullName(), w.styles.signature);
         Row line = w.row(26);
         w.put(line, leftFrom, leftTo, null, w.styles.signatureLine);
         w.put(line, rightFrom, rightTo, null, w.styles.signatureLine);

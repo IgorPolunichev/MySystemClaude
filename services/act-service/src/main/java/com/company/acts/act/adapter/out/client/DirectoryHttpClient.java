@@ -23,7 +23,7 @@ class DirectoryHttpClient implements DirectoryClient {
     private static final Logger log = LoggerFactory.getLogger(DirectoryHttpClient.class);
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record EquipmentDto(UUID id, UUID organizationId, UUID departmentId, String departmentName,
+    record EquipmentDto(UUID id, UUID organizationId, UUID departmentId, String departmentName, UUID siteId,
                         String equipmentTypeName, String brand, String model, String serialNumber, String garageNumber,
                         String plateNumber, String meterType, BigDecimal currentHours, BigDecimal currentKm) {
     }
@@ -36,6 +36,15 @@ class DirectoryHttpClient implements DirectoryClient {
     record EngineerDto(UUID id, String keycloakUserId, String fullName, String position, boolean active) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record ExecutorDto(UUID id, String name, String shortName, String inn, String kpp, String address, String phone,
+                       boolean active) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record SiteDto(UUID id, UUID organizationId, String name, String code, String address, boolean active) {
+    }
+
     private final RestClient client;
 
     DirectoryHttpClient(@Value("${app.clients.directory-url:http://localhost:8081}") String baseUrl) {
@@ -45,7 +54,7 @@ class DirectoryHttpClient implements DirectoryClient {
     @Override
     public EquipmentInfo equipment(UUID id) {
         EquipmentDto e = get("/api/v1/equipment/{id}", EquipmentDto.class, id, "equipmentId", "Техника не найдена");
-        return new EquipmentInfo(e.id(), e.organizationId(), e.departmentId(), e.departmentName(),
+        return new EquipmentInfo(e.id(), e.organizationId(), e.departmentId(), e.departmentName(), e.siteId(),
                 e.equipmentTypeName(), e.brand(), e.model(), e.serialNumber(), e.garageNumber(), e.plateNumber(),
                 e.meterType(), e.currentHours(), e.currentKm());
     }
@@ -61,6 +70,29 @@ class DirectoryHttpClient implements DirectoryClient {
     public EngineerInfo engineer(UUID id) {
         EngineerDto e = get("/api/v1/engineers/{id}", EngineerDto.class, id, "engineerId", "Инженер не найден");
         return new EngineerInfo(e.id(), e.keycloakUserId(), e.fullName(), e.position(), e.active());
+    }
+
+    @Override
+    public ExecutorInfo executor(UUID id) {
+        ExecutorDto e = get("/api/v1/executors/{id}", ExecutorDto.class, id, "executorId", "Исполнитель не найден");
+        return new ExecutorInfo(e.id(), e.name(), e.shortName(), e.inn(), e.kpp(), e.address(), e.phone(), e.active());
+    }
+
+    @Override
+    public ExecutorInfo defaultExecutor() {
+        try {
+            ExecutorDto e = client.get().uri("/api/v1/executors/default").retrieve().body(ExecutorDto.class);
+            return e == null ? null
+                    : new ExecutorInfo(e.id(), e.name(), e.shortName(), e.inn(), e.kpp(), e.address(), e.phone(), e.active());
+        } catch (HttpClientErrorException.NotFound e) {
+            return null;
+        }
+    }
+
+    @Override
+    public SiteInfo site(UUID id) {
+        SiteDto s = get("/api/v1/sites/{id}", SiteDto.class, id, "siteId", "Площадка не найдена");
+        return new SiteInfo(s.id(), s.organizationId(), s.name(), s.code(), s.address(), s.active());
     }
 
     @Override

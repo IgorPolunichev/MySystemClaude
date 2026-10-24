@@ -35,9 +35,13 @@ app:
   acts:
     # Префикс номера акта: АВР-2026-000123
     number-prefix: ${ACT_NUMBER_PREFIX:АВР}
+    # Аннулированные акты удаляются фоновой задачей через столько дней (ежедневно в 03:30)
+    purge-enabled: ${ACT_PURGE_ENABLED:true}
+    purge-cancelled-after-days: ${ACT_PURGE_AFTER_DAYS:30}
   clients:
     directory-url: ${DIRECTORY_SERVICE_URL:http://localhost:8081}
     parts-url: ${PARTS_SERVICE_URL:http://localhost:8082}
+    media-url: ${MEDIA_SERVICE_URL:http://localhost:8084}
 
 info:
   app:

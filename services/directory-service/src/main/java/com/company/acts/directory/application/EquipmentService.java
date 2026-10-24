@@ -29,13 +29,16 @@ public class EquipmentService {
     private final OrganizationRepository organizations;
     private final DepartmentRepository departments;
     private final EquipmentTypeRepository types;
+    private final com.company.acts.directory.application.port.out.SiteRepository sites;
 
     public EquipmentService(EquipmentRepository equipment, OrganizationRepository organizations,
-                            DepartmentRepository departments, EquipmentTypeRepository types) {
+                            DepartmentRepository departments, EquipmentTypeRepository types,
+                            com.company.acts.directory.application.port.out.SiteRepository sites) {
         this.equipment = equipment;
         this.organizations = organizations;
         this.departments = departments;
         this.types = types;
+        this.sites = sites;
     }
 
     /** Фильтр по подразделению включает все вложенные в него подразделения. */
@@ -63,7 +66,7 @@ public class EquipmentService {
             return get(command.id());
         }
         Equipment item = toDomain(command.id() != null ? command.id() : Uuid7.next(), null, command);
-        validate(item);
+        validate(item, null);
         equipment.save(item);
         return get(item.id());
     }
@@ -74,7 +77,7 @@ public class EquipmentService {
         Equipment current = equipment.findById(id).orElseThrow(() -> NotFoundException.of("Техника", id));
         Versions.check(command.version(), current.version());
         Equipment item = toDomain(id, current.version(), command);
-        validate(item);
+        validate(item, current.siteId());
         equipment.save(item);
         return get(id);
     }
@@ -93,7 +96,7 @@ public class EquipmentService {
             return;
         }
         equipment.save(new Equipment(id, current.version(), current.organizationId(), current.departmentId(),
-                current.equipmentTypeId(), current.brand(), current.model(), current.serialNumber(),
+                current.siteId(), current.equipmentTypeId(), current.brand(), current.model(), current.serialNumber(),
                 current.garageNumber(), current.plateNumber(), current.meterType(), newHours, newKm, current.year(),
                 current.notes()));
     }
@@ -112,7 +115,18 @@ public class EquipmentService {
         equipment.delete(id);
     }
 
-    private void validate(Equipment item) {
+    /** previousSiteId — площадка до изменения: уже назначенную заблокированную площадку можно оставить. */
+    private void validate(Equipment item, UUID previousSiteId) {
+        if (item.siteId() != null) {
+            var site = sites.findById(item.siteId())
+                    .orElseThrow(() -> new BusinessRuleException("siteId", "Площадка не найдена"));
+            if (!site.organizationId().equals(item.organizationId())) {
+                throw new BusinessRuleException("siteId", "Площадка относится к другой организации");
+            }
+            if (!site.active() && !item.siteId().equals(previousSiteId)) {
+                throw new BusinessRuleException("siteId", "Площадка «" + site.name() + "» заблокирована");
+            }
+        }
         organizations.findById(item.organizationId())
                 .orElseThrow(() -> new BusinessRuleException("organizationId", "Организация не найдена"));
         types.findById(item.equipmentTypeId())
@@ -135,7 +149,7 @@ public class EquipmentService {
     }
 
     static Equipment toDomain(UUID id, Long version, EquipmentCommand c) {
-        return new Equipment(id, version, c.organizationId(), c.departmentId(), c.equipmentTypeId(), c.brand(),
+        return new Equipment(id, version, c.organizationId(), c.departmentId(), c.siteId(), c.equipmentTypeId(), c.brand(),
                 c.model(), c.serialNumber(), c.garageNumber(), c.plateNumber(), c.meterType(), c.currentHours(),
                 c.currentKm(), c.year(), c.notes());
     }

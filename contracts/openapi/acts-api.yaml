@@ -194,7 +194,7 @@ paths:
       operationId: deleteAct
       tags:
       - acts
-      summary: Удалить черновик
+      summary: Удалить незакрытый акт (черновик, открытый, аннулированный)
       parameters:
       - name: id
         in: path
@@ -769,6 +769,68 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/acts/{id}/attachments:
+    post:
+      operationId: addActAttachment
+      tags:
+      - act-attachments
+      summary: Прикрепить документ (файл загружен в media-service с ownerType ACT_ATTACHMENT)
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAttachmentInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/acts/{id}/attachments/{attachmentId}:
+    delete:
+      operationId: deleteActAttachment
+      tags:
+      - act-attachments
+      summary: Удалить документ
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: attachmentId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActDetail'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   parameters:
     Page:
@@ -856,6 +918,7 @@ components:
       - id
       - status
       - totalHours
+      - hasSignedScan
       properties:
         id:
           type: string
@@ -912,6 +975,8 @@ components:
           - string
           - 'null'
           format: date-time
+        hasSignedScan:
+          type: boolean
     ActSummaryPage:
       type: object
       required:
@@ -1129,6 +1194,7 @@ components:
       - canCancel
       - canDelete
       - requiresAdminComment
+      - canAttach
       properties:
         canEdit:
           type: boolean
@@ -1145,6 +1211,8 @@ components:
         canDelete:
           type: boolean
         requiresAdminComment:
+          type: boolean
+        canAttach:
           type: boolean
     ActDetail:
       type: object
@@ -1166,6 +1234,7 @@ components:
       - missingForClose
       - permissions
       - photos
+      - attachments
       properties:
         id:
           type: string
@@ -1284,6 +1353,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ActPhoto'
+        executor:
+          $ref: '#/components/schemas/ActExecutor'
+        site:
+          $ref: '#/components/schemas/ActSite'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActAttachment'
     ActCreate:
       type: object
       properties:
@@ -1376,6 +1453,16 @@ components:
           - 'null'
           maxLength: 1000
           description: Обязательно при изменении закрытого акта
+        executorId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        siteId:
+          type:
+          - string
+          - 'null'
+          format: uuid
     CommentInput:
       type: object
       properties:
@@ -1584,3 +1671,121 @@ components:
           items:
             type: string
             format: uuid
+    ActExecutor:
+      type:
+      - object
+      - 'null'
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        shortName:
+          type:
+          - string
+          - 'null'
+        inn:
+          type:
+          - string
+          - 'null'
+        kpp:
+          type:
+          - string
+          - 'null'
+        address:
+          type:
+          - string
+          - 'null'
+        phone:
+          type:
+          - string
+          - 'null'
+    ActSite:
+      type:
+      - object
+      - 'null'
+      required:
+      - id
+      - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type:
+          - string
+          - 'null'
+        code:
+          type:
+          - string
+          - 'null'
+    AttachmentKind:
+      type: string
+      enum:
+      - SIGNED_ACT
+      - OTHER
+      description: Скан подписанного акта или другой документ
+    ActAttachment:
+      type: object
+      required:
+      - id
+      - mediaId
+      - kind
+      - sizeBytes
+      - canDelete
+      properties:
+        id:
+          type: string
+          format: uuid
+        mediaId:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/AttachmentKind'
+        fileName:
+          type:
+          - string
+          - 'null'
+        contentType:
+          type:
+          - string
+          - 'null'
+        sizeBytes:
+          type: integer
+          format: int64
+        comment:
+          type:
+          - string
+          - 'null'
+        uploadedBy:
+          type:
+          - string
+          - 'null'
+        uploadedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        canDelete:
+          type: boolean
+    AddAttachmentInput:
+      type: object
+      required:
+      - mediaId
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/AttachmentKind'
+        comment:
+          type:
+          - string
+          - 'null'
+          maxLength: 300

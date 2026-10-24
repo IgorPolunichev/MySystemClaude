@@ -42,7 +42,7 @@ public class ActDocumentService {
     private final ZoneId zone;
 
     public ActDocumentService(ActSource acts, PhotoSource photos, ImageScaler scaler, List<DocumentRenderer> renderers,
-                              @Value("${app.company.name:Сервисная компания}") String name,
+                              @Value("${app.company.name:ООО «Сервисная компания»}") String name,
                               @Value("${app.company.inn:}") String inn,
                               @Value("${app.company.kpp:}") String kpp,
                               @Value("${app.company.address:}") String address,
@@ -100,12 +100,16 @@ public class ActDocumentService {
         }
         ActSource.Org o = a.organization();
         ActPrintData.Customer customer = o == null ? null : new ActPrintData.Customer(
-                o.name(), o.inn(), o.kpp(), o.legalAddress(), o.departmentName());
+                o.name(), o.inn(), o.kpp(), o.legalAddress(), o.departmentName(),
+                a.site() == null ? null : a.site().name(), a.site() == null ? null : a.site().address());
+        ActSource.Party x = a.executor();
+        ActPrintData.Company actExecutor = x == null ? executor
+                : new ActPrintData.Company(x.name(), x.inn(), x.kpp(), x.address(), x.phone());
         ActSource.Eq e = a.equipment();
         ActPrintData.Equipment equipment = e == null ? null : new ActPrintData.Equipment(e.typeName(), e.brand(),
                 e.model(), e.serialNumber(), e.garageNumber(), e.plateNumber(), e.meterType());
         LocalDate documentDate = (a.closedAt() != null ? a.closedAt() : java.time.Instant.now()).atZone(zone).toLocalDate();
-        return new ActPrintData(a.number(), a.status(), documentDate, executor, customer, equipment, a.meterHours(),
+        return new ActPrintData(a.number(), a.status(), documentDate, actExecutor, customer, equipment, a.meterHours(),
                 a.meterKm(), a.location(), a.workStartDate(), a.workEndDate(), a.calendarDays(), a.shortDescription(),
                 a.detailedDescription(), a.recommendations(), a.customerRepName(), a.customerRepPosition(),
                 a.hideRequisites(), a.hideTravelTime(), engineers, rows, parts, printPhotos);

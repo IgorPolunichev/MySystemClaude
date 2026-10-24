@@ -19,8 +19,11 @@ public interface ActRepository {
 
     WorkAct save(WorkAct act);
 
-    /** Физическое удаление черновика вместе со всем содержимым. */
+    /** Физическое удаление акта вместе со всем содержимым. */
     void delete(UUID id);
+
+    /** Удалить аннулированные акты, не изменявшиеся с указанного момента; возвращает их число. */
+    int deleteCancelledBefore(Instant before);
 
     /** Пересчитать сохранённые итоги акта (часы, период, ФИО участников) для реестра. */
     void refreshAggregates(UUID id);

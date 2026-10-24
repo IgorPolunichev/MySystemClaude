@@ -13,7 +13,7 @@ paths:
       operationId: uploadMedia
       tags:
       - media
-      summary: Загрузить фото
+      summary: 'Загрузить фото (ACT_PHOTO: JPEG, PNG) или документ (ACT_ATTACHMENT: PDF, JPEG, PNG, TIFF, DOCX, XLSX, ZIP), до 25 МБ'
       requestBody:
         required: true
         content:
@@ -32,6 +32,7 @@ paths:
                   type: string
                   enum:
                   - ACT_PHOTO
+                  - ACT_ATTACHMENT
                 ownerId:
                   type: string
                   format: uuid
@@ -87,6 +88,12 @@ paths:
           - original
           - thumbnail
           default: original
+      - name: download
+        in: query
+        schema:
+          type: boolean
+          default: false
+        description: true — отдать как вложение с исходным именем файла
       responses:
         '200':
           description: Изображение

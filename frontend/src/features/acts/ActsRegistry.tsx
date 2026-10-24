@@ -185,7 +185,14 @@ export function ActsRegistry() {
               render: (_, a) => (
                 <Space direction="vertical" size={2}>
                   <span className="cell-codes cell-strong">{a.number ?? 'без номера'}</span>
-                  <Tag color={STATUS[a.status].color}>{STATUS[a.status].label}</Tag>
+                  <Space size={4} wrap>
+                    <Tag color={STATUS[a.status].color}>{STATUS[a.status].label}</Tag>
+                    {a.hasSignedScan && (
+                      <Tag color="green" title="Скан подписанного акта приложен">
+                        скан
+                      </Tag>
+                    )}
+                  </Space>
                 </Space>
               ),
             },

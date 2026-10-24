@@ -12,6 +12,10 @@ import com.company.acts.directory.application.DirectoryImportService;
 import com.company.acts.directory.application.EngineerService;
 import com.company.acts.directory.application.EquipmentService;
 import com.company.acts.directory.application.EquipmentTypeService;
+import com.company.acts.directory.application.ExecutorService;
+import com.company.acts.directory.application.SiteService;
+import com.company.acts.directory.application.command.ExecutorCommand;
+import com.company.acts.directory.application.command.SiteCommand;
 import com.company.acts.directory.application.OrganizationService;
 import com.company.acts.directory.application.command.DepartmentCommand;
 import com.company.acts.directory.application.command.EngineerCreateCommand;
@@ -47,6 +51,10 @@ class DirectoryScenariosIT extends PostgresIntegrationTest {
     EngineerService engineers;
     @Autowired
     DirectoryImportService importService;
+    @Autowired
+    ExecutorService executors;
+    @Autowired
+    SiteService sites;
 
     @Test
     @WithMockUser(roles = "ADMIN")
@@ -84,7 +92,7 @@ class DirectoryScenariosIT extends PostgresIntegrationTest {
         var section = departments.create(new DepartmentCommand(null, null, o.id(), workshop.id(), "Участок", null));
         var type = types.create(new NamedCommand(null, null, "Тестовый самосвал " + UUID.randomUUID()));
 
-        var truck = equipment.create(new EquipmentCommand(null, null, o.id(), section.id(), type.id(), "CAT", "777G",
+        var truck = equipment.create(new EquipmentCommand(null, null, o.id(), section.id(), null, type.id(), "CAT", "777G",
                 " cat0777xyz ", "45", null, MeterType.HOURS, new BigDecimal("1200.5"), null, 2020, null));
         assertThat(truck.serialNumber()).isEqualTo("CAT0777XYZ");
         assertThat(truck.organizationName()).isEqualTo("АО «Карьер»");
@@ -95,7 +103,7 @@ class DirectoryScenariosIT extends PostgresIntegrationTest {
         assertThat(equipment.search("777x", o.id(), null, null, PageQuery.of(0, 10, "-brand")).totalElements())
                 .isEqualTo(1);
 
-        assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, o.id(), null, type.id(), "CAT",
+        assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, o.id(), null, null, type.id(), "CAT",
                 "777G", "CAT0777XYZ", null, null, MeterType.HOURS, null, null, null, null)))
                 .isInstanceOf(ConflictException.class);
 
@@ -174,5 +182,51 @@ class DirectoryScenariosIT extends PostgresIntegrationTest {
             sum += digit * weights[i];
         }
         return sb.append(sum % 11 % 10).toString();
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void executorsHaveExactlyOneDefault() {
+        var base = executors.getDefault();
+        var second = executors.create(new ExecutorCommand(null, null, "ООО «Второй исполнитель»", null, randomInn(),
+                null, null, null, null, null, null, true, true));
+        assertThat(executors.getDefault().id()).isEqualTo(second.id());
+        assertThat(executors.get(base.id()).isDefault()).isFalse();
+        assertThatThrownBy(() -> executors.update(second.id(), new ExecutorCommand(null, second.version(),
+                second.name(), null, second.inn(), null, null, null, null, null, null, true, false)))
+                .isInstanceOf(BusinessRuleException.class);
+        var current = executors.get(base.id());
+        executors.update(base.id(), new ExecutorCommand(null, current.version(), current.name(), current.shortName(),
+                null, null, null, null, null, null, null, true, true));
+        assertThat(executors.getDefault().id()).isEqualTo(base.id());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void blockedSiteCannotBeAssigned() {
+        Organization o = organizations.create(org(null, null, "ООО «Площадки»", randomInn()));
+        var a = sites.create(new SiteCommand(null, null, o.id(), "Площадка А", "а", null, true));
+        var b = sites.create(new SiteCommand(null, null, o.id(), "Площадка Б", "02", "ул. Заводская, 1", true));
+        assertThatThrownBy(() -> sites.create(new SiteCommand(null, null, o.id(), "площадка а", null, null, true)))
+                .isInstanceOf(ConflictException.class);
+        var type = types.create(new NamedCommand(null, null, "Тип для площадок " + UUID.randomUUID()));
+        var truck = equipment.create(new EquipmentCommand(null, null, o.id(), null, a.id(), type.id(), "CAT", "777G",
+                null, "77", null, MeterType.HOURS, null, null, null, null));
+        assertThat(truck.siteName()).isEqualTo("Площадка А");
+
+        assertThat(a.code()).isEqualTo("А");
+        assertThatThrownBy(() -> sites.create(new SiteCommand(null, null, o.id(), "Площадка В", "02", null, true)))
+                .isInstanceOf(ConflictException.class);
+        sites.update(a.id(), new SiteCommand(null, a.version(), o.id(), a.name(), a.code(), null, false));
+        assertThat(sites.listByOrganization(o.id(), false)).extracting(s -> s.name()).containsExactly("Площадка Б");
+        assertThat(sites.listByOrganization(o.id(), true)).hasSize(2);
+        // уже назначенную заблокированную площадку можно оставить, новую — нельзя
+        var kept = equipment.update(truck.id(), new EquipmentCommand(null, truck.version(), o.id(), null, a.id(),
+                type.id(), "CAT", "777G", null, "77", null, MeterType.HOURS, new BigDecimal("10"), null, null, null));
+        assertThat(kept.siteId()).isEqualTo(a.id());
+        assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, o.id(), null, a.id(), type.id(),
+                "CAT", "785", null, "78", null, MeterType.HOURS, null, null, null, null)))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("заблокирована");
+        assertThat(b.active()).isTrue();
     }
 }

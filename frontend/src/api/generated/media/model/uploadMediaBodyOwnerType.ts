@@ -11,4 +11,5 @@ export type UploadMediaBodyOwnerType = typeof UploadMediaBodyOwnerType[keyof typ
 
 export const UploadMediaBodyOwnerType = {
   ACT_PHOTO: 'ACT_PHOTO',
+  ACT_ATTACHMENT: 'ACT_ATTACHMENT',
 } as const;

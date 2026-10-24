@@ -9,12 +9,19 @@ import java.util.UUID;
 /** Данные акта из act-service (то, что нужно для печати). */
 public interface ActSource {
 
-    record ActData(UUID id, String number, String status, Instant createdAt, Instant closedAt, Org organization,
+    record ActData(UUID id, String number, String status, Instant createdAt, Instant closedAt, Party executor,
+                   Org organization, SiteRef site,
                    Eq equipment, BigDecimal meterHours, BigDecimal meterKm, String location, LocalDate workStartDate,
                    LocalDate workEndDate, long calendarDays, String shortDescription, String detailedDescription,
                    String recommendations, String customerRepName, String customerRepPosition, boolean hideRequisites,
                    boolean hideTravelTime, List<Person> engineers, List<Time> timeEntries, List<PartLine> parts,
                    List<PhotoRef> photos) {
+    }
+
+    record Party(String name, String shortName, String inn, String kpp, String address, String phone) {
+    }
+
+    record SiteRef(String name, String address) {
     }
 
     record Org(String name, String shortName, String inn, String kpp, String legalAddress, String departmentName) {

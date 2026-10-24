@@ -6,6 +6,8 @@ import com.company.acts.act.application.view.ActSearchQuery;
 import com.company.acts.act.application.view.ActSummary;
 import com.company.acts.act.domain.ActNumberFormat;
 import com.company.acts.act.domain.EquipmentSnapshot;
+import com.company.acts.act.domain.ExecutorSnapshot;
+import com.company.acts.act.domain.SiteSnapshot;
 import com.company.acts.act.domain.OrganizationSnapshot;
 import com.company.acts.act.domain.WorkAct;
 import com.company.acts.common.core.ConflictException;
@@ -108,6 +110,19 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         e.setAuthorUserId(a.authorUserId());
         e.setClosedAt(a.closedAt());
         e.setClosedBy(a.closedBy());
+        ExecutorSnapshot x = a.executor();
+        e.setExecutorId(x == null ? null : x.id());
+        e.setExecutorName(x == null ? null : x.name());
+        e.setExecutorShortName(x == null ? null : x.shortName());
+        e.setExecutorInn(x == null ? null : x.inn());
+        e.setExecutorKpp(x == null ? null : x.kpp());
+        e.setExecutorAddress(x == null ? null : x.address());
+        e.setExecutorPhone(x == null ? null : x.phone());
+        SiteSnapshot site = a.site();
+        e.setSiteId(site == null ? null : site.id());
+        e.setSiteName(site == null ? null : site.name());
+        e.setSiteAddress(site == null ? null : site.address());
+        e.setSiteCode(site == null ? null : site.code());
         return toDomain(repository.saveAndFlush(e));
     }
 
@@ -130,7 +145,9 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
                     period_end = coalesce(w.work_end_override,
                         (select max(t.work_date) from time_entry t where t.act_id = w.id)),
                     engineer_names = (select string_agg(p.full_name, ', ' order by p.role, p.full_name)
-                        from act_participant p where p.act_id = w.id)
+                        from act_participant p where p.act_id = w.id),
+                    has_signed_scan = exists (select 1 from act_attachment x
+                        where x.act_id = w.id and x.kind = 'SIGNED_ACT')
                 where w.id = ?
                 """, id);
     }
@@ -150,7 +167,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
                 .search(q.text(), "coalesce(e.number, '')", "coalesce(e.shortDescription, '')",
                         "coalesce(e.orgName, '')", "coalesce(e.orgShortName, '')", "coalesce(e.equipmentBrand, '')",
                         "coalesce(e.equipmentModel, '')", "coalesce(e.equipmentSerial, '')",
-                        "coalesce(e.equipmentGarage, '')", "coalesce(e.equipmentPlate, '')",
+                        "coalesce(e.equipmentGarage, '')", "coalesce(e.equipmentPlate, '')", "coalesce(e.siteName, '')",
                         "coalesce(e.engineerNames, '')");
         String sortField = page.sortField() == null ? "createdAt" : page.sortField();
         boolean ascending = page.sortField() != null && page.ascending();
@@ -183,13 +200,21 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
 
     /** Номер выдаёт одна атомарная команда PostgreSQL: одновременные запросы получают разные номера. */
     @Override
-    public String next(int year) {
+    public String next(int year, String siteCode) {
+        String counter = siteCode == null ? numberPrefix : numberPrefix + "-" + siteCode;
         Long value = jdbc.queryForObject("""
                 insert into act_number_sequence (year, prefix, last_value) values (?, ?, 1)
                 on conflict (year, prefix) do update set last_value = act_number_sequence.last_value + 1
                 returning last_value
-                """, Long.class, year, numberPrefix);
-        return ActNumberFormat.format(numberPrefix, year, value == null ? 1 : value);
+                """, Long.class, year, counter);
+        return ActNumberFormat.format(numberPrefix, siteCode, year, value == null ? 1 : value);
+    }
+
+    @Override
+    public int deleteCancelledBefore(Instant before) {
+        em.flush();
+        return jdbc.update("delete from work_act where status = 'CANCELLED' and updated_at < ?",
+                java.sql.Timestamp.from(before));
     }
 
     static WorkAct toDomain(WorkActJpaEntity e) {
@@ -203,7 +228,12 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
                 e.getMeterHours(), e.getMeterKm(), e.getLocation(), e.getWorkStartOverride(), e.getWorkEndOverride(),
                 e.getShortDescription(), e.getDetailedDescription(), e.getRecommendations(), e.getCustomerRepName(),
                 e.getCustomerRepPosition(), e.isHideRequisites(), e.isHideTravelTime(), e.getAuthorEngineerId(),
-                e.getAuthorUserId(), e.getClosedAt(), e.getClosedBy());
+                e.getAuthorUserId(), e.getClosedAt(), e.getClosedBy(),
+                e.getExecutorId() == null ? null : new ExecutorSnapshot(e.getExecutorId(), e.getExecutorName(),
+                        e.getExecutorShortName(), e.getExecutorInn(), e.getExecutorKpp(), e.getExecutorAddress(),
+                        e.getExecutorPhone()),
+                e.getSiteId() == null ? null : new SiteSnapshot(e.getSiteId(), e.getSiteName(), e.getSiteCode(),
+                        e.getSiteAddress()));
     }
 
     private static ActSummary toSummary(WorkActJpaEntity e) {
@@ -221,6 +251,6 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         return new ActSummary(e.getId(), e.getNumber(), e.getStatus(),
                 e.getOrgShortName() != null ? e.getOrgShortName() : e.getOrgName(), e.getDepartmentName(), title,
                 String.join(" · ", numbers), e.getShortDescription(), e.getPeriodStart(), e.getPeriodEnd(),
-                e.getTotalHours(), e.getEngineerNames(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getTotalHours(), e.getEngineerNames(), e.getCreatedAt(), e.getUpdatedAt(), e.isHasSignedScan());
     }
 }

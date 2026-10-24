@@ -25,13 +25,15 @@ class ActDetailAssembler {
     private final TimeEntryRepository timeEntries;
     private final PartLineRepository partLines;
     private final PhotoRepository photos;
+    private final com.company.acts.act.application.port.out.AttachmentRepository attachments;
 
     ActDetailAssembler(ActRepository acts, TimeEntryRepository timeEntries, PartLineRepository partLines,
-                       PhotoRepository photos) {
+                       PhotoRepository photos, com.company.acts.act.application.port.out.AttachmentRepository attachments) {
         this.acts = acts;
         this.timeEntries = timeEntries;
         this.partLines = partLines;
         this.photos = photos;
+        this.attachments = attachments;
     }
 
     ActDetail assemble(ActContext ctx) {
@@ -69,15 +71,26 @@ class ActDetailAssembler {
         int withoutCaption = (int) photoList.stream().filter(p -> !p.hasCaption()).count();
         var permissions = new ActDetail.Permissions(policy.canEdit(), policy.canEditAnyTime(), policy.canOpen(),
                 policy.canClose(), policy.canReopen(), policy.canCancel(), policy.canDelete(),
-                policy.requiresAdminComment());
+                policy.requiresAdminComment(), policy.canAttach());
+        var attachmentViews = attachments.findByAct(act.id()).stream()
+                .map(a -> new ActDetail.AttachmentView(a.id(), a.mediaId(), a.kind(), a.fileName(), a.contentType(),
+                        a.sizeBytes(), a.comment(), a.uploadedBy(), a.uploadedAt(),
+                        policy.canDeleteAttachment(a.uploadedBy())))
+                .toList();
+        var executor = act.executor() == null ? null : new ActDetail.Executor(act.executor().id(),
+                act.executor().name(), act.executor().shortName(), act.executor().inn(), act.executor().kpp(),
+                act.executor().address(), act.executor().phone());
+        var site = act.site() == null ? null : new ActDetail.Site(act.site().id(), act.site().name(),
+                act.site().code(), act.site().address());
 
-        return new ActDetail(act.id(), act.version(), act.number(), act.status(), org, eq, act.meterHours(),
+        return new ActDetail(act.id(), act.version(), act.number(), act.status(), executor, org, site, eq,
+                act.meterHours(),
                 act.meterKm(), act.location(), period.start(), period.end(),
                 act.workStartOverride() != null || act.workEndOverride() != null, period.calendarDays(),
                 period.workedDays(), act.shortDescription(), act.detailedDescription(), act.recommendations(),
                 act.customerRepName(), act.customerRepPosition(), act.hideRequisites(), act.hideTravelTime(),
                 act.authorEngineerId(), ts[0], ts[1], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
-                photoViews,
+                photoViews, attachmentViews,
                 TimeEntry.hoursOf(entries.stream().mapToLong(TimeEntry::workMinutes).sum()),
                 sum(entries.stream().map(TimeEntry::travelHours).filter(Objects::nonNull)),
                 act.status().isEditable() ? act.missingForClose(!entries.isEmpty(), withoutCaption) : List.of(),

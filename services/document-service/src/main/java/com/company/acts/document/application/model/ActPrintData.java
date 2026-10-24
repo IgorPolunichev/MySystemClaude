@@ -37,7 +37,8 @@ public record ActPrintData(
     public record Company(String name, String inn, String kpp, String address, String phone) {
     }
 
-    public record Customer(String name, String inn, String kpp, String address, String department) {
+    public record Customer(String name, String inn, String kpp, String address, String department, String site,
+                           String siteAddress) {
     }
 
     public record Equipment(String type, String brand, String model, String serialNumber, String garageNumber,

@@ -5,12 +5,15 @@
  * Жизненный цикл акта: черновик → открыт (номер АВР-ГГГГ-NNNNNN) → закрыт; аннулирование. Табель «инженер × день», запчасти, участники, журнал. Права текущего пользователя возвращаются в карточке (permissions).
  * OpenAPI spec version: 1.0.0
  */
+import type { ActAttachment } from './actAttachment';
 import type { ActEquipment } from './actEquipment';
+import type { ActExecutor } from './actExecutor';
 import type { ActOrganization } from './actOrganization';
 import type { ActParticipant } from './actParticipant';
 import type { ActPartLine } from './actPartLine';
 import type { ActPermissions } from './actPermissions';
 import type { ActPhoto } from './actPhoto';
+import type { ActSite } from './actSite';
 import type { ActStatus } from './actStatus';
 import type { ActTimeEntry } from './actTimeEntry';
 
@@ -65,4 +68,7 @@ export interface ActDetail {
   missingForClose: string[];
   permissions: ActPermissions;
   photos: ActPhoto[];
+  executor?: ActExecutor | null;
+  site?: ActSite | null;
+  attachments: ActAttachment[];
 }

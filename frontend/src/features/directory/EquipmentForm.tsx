@@ -6,7 +6,7 @@ import type { Equipment, EquipmentInput } from '../../api/generated/directory/mo
 import { applyFormError } from '../../shared/lib/apiErrors';
 import { invalidateByPrefix } from '../../shared/lib/invalidate';
 import { emptyToNull } from '../../shared/lib/table';
-import { DepartmentSelect, EquipmentTypeSelect, OrganizationSelect } from './lookups';
+import { DepartmentSelect, EquipmentTypeSelect, OrganizationSelect, SiteSelect } from './lookups';
 
 interface Props {
   open: boolean;
@@ -70,7 +70,7 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
         requiredMark="optional"
         onFinish={(v) => void submit(v)}
         onValuesChange={(changed) => {
-          if ('organizationId' in changed) form.setFieldValue('departmentId', null);
+          if ('organizationId' in changed) form.setFieldsValue({ departmentId: null, siteId: null });
         }}
       >
         <Form.Item
@@ -79,6 +79,9 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
           rules={[{ required: true, message: 'Выберите организацию' }]}
         >
           <OrganizationSelect />
+        </Form.Item>
+        <Form.Item name="siteId" label="Производственная площадка">
+          <SiteSelect organizationId={organizationId} />
         </Form.Item>
         <Form.Item name="departmentId" label="Подразделение">
           <DepartmentSelect organizationId={organizationId} />

@@ -67,4 +67,8 @@ export interface ActHeaderInput {
      * @nullable
      */
   adminComment?: string | null;
+  /** @nullable */
+  executorId?: string | null;
+  /** @nullable */
+  siteId?: string | null;
 }

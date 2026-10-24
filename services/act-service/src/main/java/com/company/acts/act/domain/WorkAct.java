@@ -39,13 +39,16 @@ public final class WorkAct {
     private final String authorUserId;
     private Instant closedAt;
     private String closedBy;
+    private ExecutorSnapshot executor;
+    private SiteSnapshot site;
 
     public WorkAct(UUID id, Long version, String number, ActStatus status, OrganizationSnapshot organization,
                    EquipmentSnapshot equipment, BigDecimal meterHours, BigDecimal meterKm, String location,
                    LocalDate workStartOverride, LocalDate workEndOverride, String shortDescription,
                    String detailedDescription, String recommendations, String customerRepName,
                    String customerRepPosition, boolean hideRequisites, boolean hideTravelTime,
-                   UUID authorEngineerId, String authorUserId, Instant closedAt, String closedBy) {
+                   UUID authorEngineerId, String authorUserId, Instant closedAt, String closedBy,
+                   ExecutorSnapshot executor, SiteSnapshot site) {
         this.id = Objects.requireNonNull(id, "id");
         this.version = version;
         this.number = number;
@@ -68,12 +71,14 @@ public final class WorkAct {
         this.authorUserId = authorUserId;
         this.closedAt = closedAt;
         this.closedBy = closedBy;
+        this.executor = executor;
+        this.site = site;
     }
 
     /** Новый черновик: реквизиты и время в пути по умолчанию скрыты в печатной форме (раздел 16 SPEC.md). */
     public static WorkAct draft(UUID id, UUID authorEngineerId, String authorUserId) {
         return new WorkAct(id, null, null, ActStatus.DRAFT, null, null, null, null, null, null, null, null, null,
-                null, null, null, true, true, authorEngineerId, authorUserId, null, null);
+                null, null, null, true, true, authorEngineerId, authorUserId, null, null, null, null);
     }
 
     /** Изменение шапки и описаний. Снимки техники и организации передаются уже собранными. */
@@ -109,6 +114,12 @@ public final class WorkAct {
         this.customerRepPosition = Strings.trimToNull(customerRepPosition);
         this.hideRequisites = hideRequisites;
         this.hideTravelTime = hideTravelTime;
+    }
+
+    /** Исполнитель и площадка заказчика (снимки). */
+    public void assignParties(ExecutorSnapshot executor, SiteSnapshot site) {
+        this.executor = executor;
+        this.site = site;
     }
 
     /** Черновик → открыт: присваивается номер. Без техники открыть нельзя. */
@@ -274,5 +285,13 @@ public final class WorkAct {
 
     public String closedBy() {
         return closedBy;
+    }
+
+    public ExecutorSnapshot executor() {
+        return executor;
+    }
+
+    public SiteSnapshot site() {
+        return site;
     }
 }

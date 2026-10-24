@@ -9,4 +9,8 @@ import type { GetMediaContentVariant } from './getMediaContentVariant';
 
 export type GetMediaContentParams = {
 variant?: GetMediaContentVariant;
+/**
+ * true — отдать как вложение с исходным именем файла
+ */
+download?: boolean;
 };

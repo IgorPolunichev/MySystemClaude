@@ -71,4 +71,6 @@ export interface EquipmentInput {
      * @nullable
      */
   notes?: string | null;
+  /** @nullable */
+  siteId?: string | null;
 }

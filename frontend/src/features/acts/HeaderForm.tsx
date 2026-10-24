@@ -25,6 +25,7 @@ import { invalidateByPrefix } from '../../shared/lib/invalidate';
 import { emptyToNull } from '../../shared/lib/table';
 import { isoDate } from './actMeta';
 import { EquipmentSelect } from './lookups';
+import { ExecutorSelect, SiteSelect } from '../directory/lookups';
 
 type FormValues = Omit<ActHeaderInput, 'workStartDate' | 'workEndDate' | 'version'> & {
   workStartDate?: Dayjs | null;
@@ -34,6 +35,8 @@ type FormValues = Omit<ActHeaderInput, 'workStartDate' | 'workEndDate' | 'versio
 function toForm(act: ActDetail): FormValues {
   return {
     equipmentId: act.equipment?.id ?? null,
+    executorId: act.executor?.id ?? null,
+    siteId: act.site?.id ?? null,
     meterHours: act.meterHours,
     meterKm: act.meterKm,
     location: act.location,
@@ -110,10 +113,21 @@ export function HeaderForm({ act }: { act: ActDetail }) {
         initialValues={toForm(act)}
         disabled={!editable}
         onFinish={submit}
-        onValuesChange={() => setDirty(true)}
+        onValuesChange={(changed) => {
+          setDirty(true);
+          // Новая техника — площадку подставит сервер по технике.
+          if ('equipmentId' in changed) form.setFieldValue('siteId', null);
+        }}
       >
         <div className="act-section">
-          <Typography.Title level={5}>Техника и заказчик</Typography.Title>
+          <Typography.Title level={5}>Стороны и техника</Typography.Title>
+          <Form.Item
+            name="executorId"
+            label="Исполнитель"
+            extra="Компания, от имени которой составляется акт"
+          >
+            <ExecutorSelect />
+          </Form.Item>
           <Form.Item
             name="equipmentId"
             label="Техника"
@@ -125,6 +139,15 @@ export function HeaderForm({ act }: { act: ActDetail }) {
           >
             <EquipmentSelect disabled={!editable} />
           </Form.Item>
+          {act.organization && equipmentId === act.equipment?.id && (
+            <Form.Item
+              name="siteId"
+              label="Производственная площадка"
+              extra="По умолчанию — площадка техники"
+            >
+              <SiteSelect organizationId={act.organization.id} />
+            </Form.Item>
+          )}
           <Row gutter={16}>
             {meterType !== 'KM' && (
               <Col xs={24} sm={8}>

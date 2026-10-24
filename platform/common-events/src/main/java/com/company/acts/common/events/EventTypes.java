@@ -12,6 +12,7 @@ public final class EventTypes {
     public static final String ACT_CLOSED = "ActClosed";
     public static final String ACT_REOPENED = "ActReopened";
     public static final String ACT_CANCELLED = "ActCancelled";
+    public static final String ACT_DELETED = "ActDeleted";
     public static final String TIME_ENTRY_CHANGED = "TimeEntryChanged";
     public static final String PARTS_USED_IN_ACT = "PartsUsedInAct";
 

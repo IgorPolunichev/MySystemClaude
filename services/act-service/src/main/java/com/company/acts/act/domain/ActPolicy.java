@@ -66,9 +66,22 @@ public record ActPolicy(WorkAct act, List<Participant> participants, CurrentUser
         return act.status() == ActStatus.OPEN && (isAuthor() || user.isSupervisor());
     }
 
-    /** Удалить можно только черновик. */
+    /** Удалить можно незакрытый акт (черновик, открытый, аннулированный): автор, руководитель, администратор. */
     public boolean canDelete() {
-        return act.status() == ActStatus.DRAFT && (isAuthor() || user.isSupervisor());
+        return act.status() != ActStatus.CLOSED && (isAuthor() || user.isSupervisor());
+    }
+
+    /**
+     * Прикреплять документы: участники акта, руководитель, администратор — в том числе к закрытому акту
+     * (скан подписанного акта появляется как раз после закрытия). К аннулированному — нельзя.
+     */
+    public boolean canAttach() {
+        return act.status() != ActStatus.CANCELLED && (isAuthor() || isParticipant() || user.isSupervisor());
+    }
+
+    /** Удалить документ: тот, кто его загрузил, руководитель, администратор. */
+    public boolean canDeleteAttachment(String uploadedBy) {
+        return act.status() != ActStatus.CANCELLED && (user.isSupervisor() || user.username().equals(uploadedBy));
     }
 
     /** Изменение закрытого акта администратором требует комментария. */

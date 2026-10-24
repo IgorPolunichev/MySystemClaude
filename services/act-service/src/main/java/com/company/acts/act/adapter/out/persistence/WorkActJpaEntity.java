@@ -17,6 +17,42 @@ import java.util.UUID;
 @Table(name = "work_act")
 public class WorkActJpaEntity extends AuditedJpaEntity {
 
+    @Column(name = "executor_id")
+    private UUID executorId;
+
+    @Column(name = "executor_name")
+    private String executorName;
+
+    @Column(name = "executor_short_name")
+    private String executorShortName;
+
+    @Column(name = "executor_inn")
+    private String executorInn;
+
+    @Column(name = "executor_kpp")
+    private String executorKpp;
+
+    @Column(name = "executor_address")
+    private String executorAddress;
+
+    @Column(name = "executor_phone")
+    private String executorPhone;
+
+    @Column(name = "site_id")
+    private UUID siteId;
+
+    @Column(name = "site_name")
+    private String siteName;
+
+    @Column(name = "site_code")
+    private String siteCode;
+
+    @Column(name = "site_address")
+    private String siteAddress;
+
+    @Column(name = "has_signed_scan", insertable = false, updatable = false)
+    private boolean hasSignedScan;
+
     @Column(name = "number")
     private String number;
 
@@ -435,5 +471,97 @@ public class WorkActJpaEntity extends AuditedJpaEntity {
 
     public void setEngineerNames(String engineerNames) {
         this.engineerNames = engineerNames;
+    }
+
+    public UUID getExecutorId() {
+        return executorId;
+    }
+
+    public void setExecutorId(UUID executorId) {
+        this.executorId = executorId;
+    }
+
+    public String getExecutorName() {
+        return executorName;
+    }
+
+    public void setExecutorName(String executorName) {
+        this.executorName = executorName;
+    }
+
+    public String getExecutorShortName() {
+        return executorShortName;
+    }
+
+    public void setExecutorShortName(String executorShortName) {
+        this.executorShortName = executorShortName;
+    }
+
+    public String getExecutorInn() {
+        return executorInn;
+    }
+
+    public void setExecutorInn(String executorInn) {
+        this.executorInn = executorInn;
+    }
+
+    public String getExecutorKpp() {
+        return executorKpp;
+    }
+
+    public void setExecutorKpp(String executorKpp) {
+        this.executorKpp = executorKpp;
+    }
+
+    public String getExecutorAddress() {
+        return executorAddress;
+    }
+
+    public void setExecutorAddress(String executorAddress) {
+        this.executorAddress = executorAddress;
+    }
+
+    public String getExecutorPhone() {
+        return executorPhone;
+    }
+
+    public void setExecutorPhone(String executorPhone) {
+        this.executorPhone = executorPhone;
+    }
+
+    public UUID getSiteId() {
+        return siteId;
+    }
+
+    public void setSiteId(UUID siteId) {
+        this.siteId = siteId;
+    }
+
+    public String getSiteName() {
+        return siteName;
+    }
+
+    public void setSiteName(String siteName) {
+        this.siteName = siteName;
+    }
+
+    public String getSiteAddress() {
+        return siteAddress;
+    }
+
+    public void setSiteAddress(String siteAddress) {
+        this.siteAddress = siteAddress;
+    }
+
+    public boolean isHasSignedScan() {
+        return hasSignedScan;
+    }
+
+    public String getSiteCode() {
+        return siteCode;
+    }
+
+    public void setSiteCode(String siteCode) {
+        this.siteCode = siteCode;
     }
 }

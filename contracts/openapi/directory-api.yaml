@@ -871,6 +871,234 @@ paths:
           description: Готово
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/executors:
+    get:
+      operationId: listExecutors
+      tags:
+      - executors
+      summary: Исполнители
+      parameters:
+      - name: includeInactive
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Executor'
+    post:
+      operationId: createExecutor
+      tags:
+      - executors
+      summary: Добавить исполнителя (администратор)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutorInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Executor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/executors/default:
+    get:
+      operationId: getDefaultExecutor
+      tags:
+      - executors
+      summary: Основной исполнитель
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Executor'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/executors/{id}:
+    get:
+      operationId: getExecutor
+      tags:
+      - executors
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Executor'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateExecutor
+      tags:
+      - executors
+      summary: Изменить или заблокировать исполнителя
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutorInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Executor'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/organizations/{organizationId}/sites:
+    get:
+      operationId: listOrganizationSites
+      tags:
+      - sites
+      summary: Площадки организации
+      parameters:
+      - name: organizationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: includeInactive
+        in: query
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Site'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/sites:
+    post:
+      operationId: createSite
+      tags:
+      - sites
+      summary: Добавить площадку
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/sites/{id}:
+    get:
+      operationId: getSite
+      tags:
+      - sites
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      operationId: updateSite
+      tags:
+      - sites
+      summary: Переименовать, заблокировать или разблокировать площадку
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Site'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
 components:
   parameters:
     Page:
@@ -1268,6 +1496,15 @@ components:
         updatedAt:
           type: string
           format: date-time
+        siteId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        siteName:
+          type:
+          - string
+          - 'null'
     EquipmentInput:
       type: object
       required:
@@ -1347,6 +1584,11 @@ components:
           - string
           - 'null'
           maxLength: 2000
+        siteId:
+          type:
+          - string
+          - 'null'
+          format: uuid
     ServiceDepartment:
       type: object
       required:
@@ -1682,3 +1924,182 @@ components:
           - number
           - 'null'
           minimum: 0
+    Executor:
+      type: object
+      required:
+      - id
+      - name
+      - isDefault
+      - active
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        shortName:
+          type:
+          - string
+          - 'null'
+        inn:
+          type:
+          - string
+          - 'null'
+        kpp:
+          type:
+          - string
+          - 'null'
+        ogrn:
+          type:
+          - string
+          - 'null'
+        address:
+          type:
+          - string
+          - 'null'
+        phone:
+          type:
+          - string
+          - 'null'
+        email:
+          type:
+          - string
+          - 'null'
+        bankDetails:
+          type:
+          - string
+          - 'null'
+        isDefault:
+          type: boolean
+        active:
+          type: boolean
+        version:
+          type: integer
+          format: int64
+    ExecutorInput:
+      type: object
+      required:
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        name:
+          type: string
+          maxLength: 300
+        shortName:
+          type:
+          - string
+          - 'null'
+        inn:
+          type:
+          - string
+          - 'null'
+        kpp:
+          type:
+          - string
+          - 'null'
+        ogrn:
+          type:
+          - string
+          - 'null'
+        address:
+          type:
+          - string
+          - 'null'
+        phone:
+          type:
+          - string
+          - 'null'
+        email:
+          type:
+          - string
+          - 'null'
+        bankDetails:
+          type:
+          - string
+          - 'null'
+        isDefault:
+          type:
+          - boolean
+          - 'null'
+        active:
+          type:
+          - boolean
+          - 'null'
+    Site:
+      type: object
+      required:
+      - id
+      - organizationId
+      - name
+      - active
+      - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+          description: false — площадка заблокирована
+        version:
+          type: integer
+          format: int64
+        code:
+          type:
+          - string
+          - 'null'
+          description: 'Код площадки в номере акта: «А», «01»'
+    SiteInput:
+      type: object
+      required:
+      - organizationId
+      - name
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        version:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        organizationId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 200
+        address:
+          type:
+          - string
+          - 'null'
+        active:
+          type:
+          - boolean
+          - 'null'
+        code:
+          type:
+          - string
+          - 'null'
+          maxLength: 6
+          pattern: ^[\p{L}\p{Nd}]{1,6}$

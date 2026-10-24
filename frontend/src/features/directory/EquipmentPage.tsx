@@ -165,6 +165,7 @@ export function EquipmentPage() {
               render: (_, e) => (
                 <Space direction="vertical" size={0}>
                   <span>{e.organizationName}</span>
+                  {e.siteName && <span className="cell-muted">{e.siteName}</span>}
                   {e.departmentName && <span className="cell-muted">{e.departmentName}</span>}
                 </Space>
               ),

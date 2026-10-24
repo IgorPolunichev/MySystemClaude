@@ -48,7 +48,8 @@ class XlsxActRendererTest {
                 total += onSheet;
             }
             assertThat(total).isEqualTo(photos);
-            assertThat(text(wb.getSheetAt(1 + reportSheets))).contains("Сервисный инженер");
+            assertThat(text(wb.getSheetAt(1 + reportSheets))).contains("Представитель исполнителя")
+                    .contains("Площадка «Северный карьер»");
         }
     }
 
@@ -68,7 +69,12 @@ class XlsxActRendererTest {
         XSSFWorkbook wb = render(data(0, true, true), "timesheet");
         String sheet = text(wb.getSheetAt(1));
         assertThat(sheet).contains("10:00").contains("13:00").contains("11:00–12:00").contains("Петров И. С.");
-        assertThat(text(wb.getSheetAt(0))).contains("АКТ ВЫПОЛНЕННЫХ РАБОТ № АВР-2026-000047").contains("250,5 м/ч");
+        assertThat(text(wb.getSheetAt(0))).contains("АКТ ВЫПОЛНЕННЫХ РАБОТ № АВР-2026-000047").contains("250,5 м/ч")
+                .contains("Производственная площадка").contains("Представитель исполнителя");
+        // часы — числом в формате «Общий»: целые без запятой
+        var hours = wb.getSheetAt(1).getRow(4).getCell(5);
+        assertThat(hours.getNumericCellValue()).isEqualTo(2.0);
+        assertThat(hours.getCellStyle().getDataFormatString()).isEqualTo("General");
     }
 
     private XSSFWorkbook render(ActPrintData data, String sample) throws Exception {
@@ -107,7 +113,8 @@ class XlsxActRendererTest {
         }
         return new ActPrintData("АВР-2026-000047", "OPEN", LocalDate.of(2026, 10, 7),
                 new ActPrintData.Company("ООО «Сервис»", "7707083893", "773601001", "г. Москва", "+7 495 000-00-00"),
-                new ActPrintData.Customer("АО «Тест»", "7707083893", "773601001", "г. Воркута", "Участок 1"),
+                new ActPrintData.Customer("АО «Тест»", "7707083893", "773601001", "г. Воркута", "Участок 1",
+                        "Площадка «Северный карьер»", "Воркута, карьер"),
                 new ActPrintData.Equipment("Карьерный самосвал", "CAT", "777G", "CAT0777GTBY00123", "45", null, "HOURS"),
                 new BigDecimal("1250.5"), null, "Бокс № 2", LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 7), 3,
                 "ТО-2000", longText, "Заменить ремни через 250 м/ч", "Сидоров А. В.", "Механик", hideRequisites,

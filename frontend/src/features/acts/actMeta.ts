@@ -23,6 +23,8 @@ export const HISTORY_ACTIONS: Record<string, string> = {
   PART_REMOVED: 'Удалена запчасть',
   PHOTO_ADDED: 'Добавлено фото',
   PHOTO_REMOVED: 'Удалено фото',
+  ATTACHMENT_ADDED: 'Прикреплён документ',
+  ATTACHMENT_REMOVED: 'Удалён документ',
 };
 
 const dateFmt = new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });

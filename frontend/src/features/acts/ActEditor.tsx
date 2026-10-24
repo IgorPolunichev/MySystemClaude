@@ -49,6 +49,7 @@ import { HISTORY_ACTIONS, STATUS, formatDate, formatHours, formatPeriod } from '
 import { HeaderForm } from './HeaderForm';
 import { PartsSection } from './PartsSection';
 import { PhotosSection } from './PhotosSection';
+import { AttachmentsSection } from './AttachmentsSection';
 import { Timesheet } from './Timesheet';
 
 const dateTime = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
@@ -167,7 +168,14 @@ function ActActions({ act }: { act: ActDetail }) {
     { key: 'copy', icon: <CopyOutlined />, label: 'Создать на основе' },
     ...(p.canCancel ? [{ key: 'cancel', icon: <StopOutlined />, label: 'Аннулировать', danger: true }] : []),
     ...(p.canDelete
-      ? [{ key: 'delete', icon: <DeleteOutlined />, label: 'Удалить черновик', danger: true }]
+      ? [
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: act.status === 'DRAFT' ? 'Удалить черновик' : 'Удалить акт',
+            danger: true,
+          },
+        ]
       : []),
   ];
 
@@ -187,8 +195,10 @@ function ActActions({ act }: { act: ActDetail }) {
       setDialog('cancel');
     } else if (key === 'delete') {
       modal.confirm({
-        title: 'Удалить черновик?',
-        content: 'Черновик будет удалён вместе с табелем и запчастями. Это действие нельзя отменить.',
+        title: act.status === 'DRAFT' ? 'Удалить черновик?' : `Удалить акт ${act.number ?? ''}?`,
+        content:
+          'Акт будет удалён вместе с табелем, запчастями, фото и документами. Это действие нельзя отменить.' +
+          (act.number ? ' Номер акта больше не будет выдан.' : ''),
         okText: 'Удалить',
         okButtonProps: { danger: true },
         cancelText: 'Отмена',
@@ -330,6 +340,7 @@ export function ActEditor() {
             {eq?.garageNumber && ` · гар. № ${eq.garageNumber}`}
             {eq?.plateNumber && ` · ${eq.plateNumber}`}
             {act.organization && ` · ${act.organization.shortName ?? act.organization.name}`}
+            {act.site && ` · ${act.site.name}`}
           </div>
         </div>
         <ActActions act={act} />
@@ -398,6 +409,7 @@ export function ActEditor() {
         <Timesheet act={act} />
         <PartsSection act={act} />
         <PhotosSection act={act} />
+        <AttachmentsSection act={act} />
       </div>
     </section>
   );

@@ -15,4 +15,5 @@ export interface ActPermissions {
   canCancel: boolean;
   canDelete: boolean;
   requiresAdminComment: boolean;
+  canAttach: boolean;
 }

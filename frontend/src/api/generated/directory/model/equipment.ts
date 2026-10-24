@@ -39,4 +39,8 @@ export interface Equipment {
   version: number;
   createdAt?: string;
   updatedAt?: string;
+  /** @nullable */
+  siteId?: string | null;
+  /** @nullable */
+  siteName?: string | null;
 }

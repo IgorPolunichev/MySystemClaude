@@ -20,6 +20,9 @@ public class EquipmentJpaEntity extends AuditedJpaEntity {
     @Column(name = "department_id")
     private UUID departmentId;
 
+    @Column(name = "site_id")
+    private UUID siteId;
+
     @Column(name = "equipment_type_id")
     private UUID equipmentTypeId;
 
@@ -156,5 +159,13 @@ public class EquipmentJpaEntity extends AuditedJpaEntity {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    public UUID getSiteId() {
+        return siteId;
+    }
+
+    public void setSiteId(UUID siteId) {
+        this.siteId = siteId;
     }
 }

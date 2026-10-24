@@ -55,6 +55,12 @@ class ActScenariosIT extends PostgresIntegrationTest {
 
         @Bean
         @Primary
+        FakeMedia fakeMedia() {
+            return new FakeMedia();
+        }
+
+        @Bean
+        @Primary
         PartsClient fakeParts() {
             return (name, number, unit, fluid) -> UUID.nameUUIDFromBytes(("part:" + name).getBytes());
         }
@@ -70,6 +76,26 @@ class ActScenariosIT extends PostgresIntegrationTest {
     FakeDirectory directory;
     @Autowired
     JdbcTemplate jdbc;
+    @Autowired
+    FakeMedia media;
+    @Autowired
+    com.company.acts.act.application.ActAttachmentService attachments;
+
+    /** Поддельный media-service: файл «загружен» для указанного владельца. */
+    static class FakeMedia implements com.company.acts.act.application.port.out.MediaClient {
+        final java.util.Map<UUID, UUID> owners = new java.util.concurrent.ConcurrentHashMap<>();
+
+        UUID upload(UUID actId) {
+            UUID id = UUID.randomUUID();
+            owners.put(id, actId);
+            return id;
+        }
+
+        @Override
+        public MediaInfo media(UUID id) {
+            return new MediaInfo(id, "ACT_ATTACHMENT", owners.get(id), "Акт подписан.pdf", "application/pdf", 245_000);
+        }
+    }
 
     private static final LocalDate DAY = LocalDate.of(2026, 10, 5);
 
@@ -100,7 +126,8 @@ class ActScenariosIT extends PostgresIntegrationTest {
     private ActDetail header(ActDetail act, BigDecimal hours, String shortText, String adminComment) {
         return acts.updateHeader(act.id(), new ActHeaderCommand(act.version(), act.equipment().id(), hours, null,
                 null, null, null, shortText, "Подробно", null, "Механик Сидоров", "Механик", null, null,
-                adminComment));
+                adminComment, act.executor() == null ? null : act.executor().id(),
+                act.site() == null ? null : act.site().id()));
     }
 
     @Test
@@ -215,7 +242,7 @@ class ActScenariosIT extends PostgresIntegrationTest {
         login(user());
         ActDetail act = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
         act = acts.updateHeader(act.id(), new ActHeaderCommand(act.version(), act.equipment().id(), null, null, null,
-                null, null, "Замена ГМП", null, null, null, null, null, null, null));
+                null, null, "Замена ГМП", null, null, null, null, null, null, null, null, null));
         UUID id = act.id();
         content.addPart(id, new PartLineCommand(null, PartSource.CATALOG, UUID.randomUUID(), "Фильтр", "1r-0750",
                 new BigDecimal("2"), "PCS", null, null));
@@ -238,7 +265,9 @@ class ActScenariosIT extends PostgresIntegrationTest {
         assertThat(copy.timeEntries()).isEmpty();
 
         acts.delete(copy.id());
+        // открытый акт тоже можно удалить (номер больше не выдаётся); посторонний — не может
         ActDetail opened = acts.open(id);
+        login(user());
         assertThatThrownBy(() -> acts.delete(opened.id())).isInstanceOf(AccessDeniedException.class);
     }
 
@@ -249,7 +278,7 @@ class ActScenariosIT extends PostgresIntegrationTest {
         String marker = "Поиск-" + UUID.randomUUID().toString().substring(0, 6);
         ActDetail act = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
         act = acts.updateHeader(act.id(), new ActHeaderCommand(act.version(), act.equipment().id(), null, null, null,
-                null, null, marker, null, null, null, null, null, null, null));
+                null, null, marker, null, null, null, null, null, null, null, null, null));
         ActDetail opened = acts.open(act.id());
 
         var byText = acts.search(new ActSearchQuery(marker.toLowerCase(), null, null, null, null, null, null, null),
@@ -300,5 +329,92 @@ class ActScenariosIT extends PostgresIntegrationTest {
         assertThat(photos.add(actId, first, "дубль").photos()).hasSize(2);
         assertThat(acts.close(actId).status()).isEqualTo(ActStatus.CLOSED);
         assertThatThrownBy(() -> photos.delete(actId, secondPhoto)).isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void executorAndSiteAreSnapshottedAndBlockedSiteIsRejected() {
+        login(user());
+        ActDetail act = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        assertThat(act.executor().id()).isEqualTo(FakeDirectory.EXECUTOR_MAIN);
+        assertThat(act.site().name()).isEqualTo("Площадка А");
+
+        ActDetail changed = acts.updateHeader(act.id(), new ActHeaderCommand(act.version(), act.equipment().id(), null,
+                null, null, null, null, "ТО", null, null, null, null, null, null, null, FakeDirectory.EXECUTOR_SECOND,
+                FakeDirectory.SITE_B));
+        assertThat(changed.executor().shortName()).isEqualTo("ООО «Второй»");
+        assertThat(changed.site().name()).isEqualTo("Площадка Б");
+
+        assertThatThrownBy(() -> acts.updateHeader(act.id(), new ActHeaderCommand(changed.version(),
+                changed.equipment().id(), null, null, null, null, null, "ТО", null, null, null, null, null, null, null,
+                FakeDirectory.EXECUTOR_SECOND, FakeDirectory.SITE_CLOSED)))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("заблокирована");
+        assertThat(acts.search(new ActSearchQuery("Площадка Б", null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items()).extracting(s -> s.id()).contains(act.id());
+    }
+
+    @Test
+    void signedScanCanBeAttachedAfterClosing() {
+        String author = user();
+        login(author);
+        ActDetail act = acts.open(acts.create(new ActCreateCommand(null, UUID.randomUUID())).id());
+        act = header(act, new BigDecimal("50"), "Ремонт", null);
+        content.putTime(act.id(), FakeDirectory.engineerId(author), DAY, work("09:00-11:00"));
+        ActDetail closed = acts.close(act.id());
+        assertThat(closed.permissions().canAttach()).isTrue();
+
+        UUID scan = media.upload(closed.id());
+        ActDetail withScan = attachments.add(closed.id(), scan,
+                com.company.acts.act.domain.AttachmentKind.SIGNED_ACT, "Подписан механиком");
+        assertThat(withScan.attachments()).singleElement().satisfies(a -> {
+            assertThat(a.fileName()).isEqualTo("Акт подписан.pdf");
+            assertThat(a.canDelete()).isTrue();
+        });
+        assertThat(acts.search(new ActSearchQuery(closed.number(), null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items()).singleElement().satisfies(s -> assertThat(s.hasSignedScan()).isTrue());
+
+        UUID foreign = media.upload(UUID.randomUUID());
+        UUID actId = closed.id();
+        assertThatThrownBy(() -> attachments.add(actId, foreign, null, null))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("не для этого акта");
+
+        login(user());
+        assertThatThrownBy(() -> attachments.add(actId, media.upload(actId), null, null))
+                .isInstanceOf(AccessDeniedException.class);
+        UUID attachmentId = withScan.attachments().get(0).id();
+        assertThatThrownBy(() -> attachments.delete(actId, attachmentId)).isInstanceOf(AccessDeniedException.class);
+
+        login(author);
+        assertThat(attachments.delete(actId, attachmentId).attachments()).isEmpty();
+        assertThat(acts.search(new ActSearchQuery(closed.number(), null, null, null, null, null, null, null),
+                PageQuery.of(0, 10, null)).items().get(0).hasSignedScan()).isFalse();
+    }
+
+    @Test
+    void siteCodeGoesIntoNumberAndUnclosedActsCanBeDeleted() {
+        String author = user();
+        login(author);
+        ActDetail act = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        act = acts.updateHeader(act.id(), new ActHeaderCommand(act.version(), act.equipment().id(), null, null, null,
+                null, null, "ТО", null, null, null, null, null, null, null, null, FakeDirectory.SITE_B));
+        ActDetail first = acts.open(act.id());
+        assertThat(first.number()).matches("АВР-Б-\\d{4}-\\d{6}");
+        ActDetail secondDraft = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        secondDraft = acts.updateHeader(secondDraft.id(), new ActHeaderCommand(secondDraft.version(),
+                secondDraft.equipment().id(), null, null, null, null, null, "ТО", null, null, null, null, null, null,
+                null, null, FakeDirectory.SITE_B));
+        ActDetail second = acts.open(secondDraft.id());
+        long n1 = Long.parseLong(first.number().substring(first.number().length() - 6));
+        assertThat(second.number()).endsWith("%06d".formatted(n1 + 1));
+
+        assertThat(first.permissions().canDelete()).isTrue();
+        acts.delete(first.id());
+        UUID deleted = first.id();
+        assertThatThrownBy(() -> acts.get(deleted)).isInstanceOf(com.company.acts.common.core.NotFoundException.class);
+
+        ActDetail cancelled = acts.cancel(second.id(), "Ошибочно заведён");
+        jdbc.update("update work_act set updated_at = now() - interval '40 days' where id = ?", cancelled.id());
+        assertThat(acts.purgeCancelled(java.time.Duration.ofDays(30))).isGreaterThanOrEqualTo(1);
+        UUID purged = cancelled.id();
+        assertThatThrownBy(() -> acts.get(purged)).isInstanceOf(com.company.acts.common.core.NotFoundException.class);
     }
 }
