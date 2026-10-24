@@ -32,6 +32,17 @@ server:
 
 app:
   version: "@project.version@"
+  zone: ${APP_ZONE:Europe/Moscow}
+  # Реквизиты исполнителя (сервисной компании) для печатной формы; конструктор форм — раздел 16 SPEC.md
+  company:
+    name: ${COMPANY_NAME:ООО «Сервисная компания»}
+    inn: ${COMPANY_INN:}
+    kpp: ${COMPANY_KPP:}
+    address: ${COMPANY_ADDRESS:}
+    phone: ${COMPANY_PHONE:}
+  clients:
+    act-url: ${ACT_SERVICE_URL:http://localhost:8083}
+    media-url: ${MEDIA_SERVICE_URL:http://localhost:8084}
 
 info:
   app:

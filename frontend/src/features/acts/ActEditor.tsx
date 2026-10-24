@@ -20,6 +20,7 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   CopyOutlined,
+  FileExcelOutlined,
   DeleteOutlined,
   HistoryOutlined,
   MoreOutlined,
@@ -40,7 +41,7 @@ import {
   useReopenAct,
 } from '../../api/generated/acts/acts';
 import type { ActDetail } from '../../api/generated/acts/model';
-import { ApiError } from '../../api/http';
+import { ApiError, downloadFile } from '../../api/http';
 import { ok } from '../../api/unwrap';
 import { errorText } from '../../shared/lib/apiErrors';
 import { invalidateByPrefix } from '../../shared/lib/invalidate';
@@ -133,7 +134,19 @@ function ActActions({ act }: { act: ActDetail }) {
   const remove = useDeleteAct();
   const [dialog, setDialog] = useState<'cancel' | 'reopen' | null>(null);
   const [history, setHistory] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const p = act.permissions;
+
+  const download = async () => {
+    setDownloading(true);
+    try {
+      await downloadFile(`/api/v1/documents/acts/${act.id}/xlsx`, `${act.number ?? 'Черновик'}.xlsx`);
+    } catch (e) {
+      message.error(errorText(e));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: getGetActQueryKey(act.id) });
@@ -235,6 +248,9 @@ function ActActions({ act }: { act: ActDetail }) {
           Вернуть в работу
         </Button>
       )}
+      <Button icon={<FileExcelOutlined />} loading={downloading} onClick={() => void download()}>
+        Скачать Excel
+      </Button>
       <Button icon={<HistoryOutlined />} onClick={() => setHistory(true)}>
         Журнал
       </Button>

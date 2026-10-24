@@ -235,6 +235,14 @@ services:
       DB_NAME: documents
       DB_USER: documents
       DB_PASSWORD: documents
+      ACT_SERVICE_URL: http://act-service:8083
+      MEDIA_SERVICE_URL: http://media-service:8084
+      # Реквизиты вашей компании в акте (печатаются, если в акте снята галочка «Скрыть реквизиты»)
+      COMPANY_NAME: ${COMPANY_NAME:-ООО «Сервисная компания»}
+      COMPANY_INN: ${COMPANY_INN:-}
+      COMPANY_KPP: ${COMPANY_KPP:-}
+      COMPANY_ADDRESS: ${COMPANY_ADDRESS:-}
+      COMPANY_PHONE: ${COMPANY_PHONE:-}
     ports:
       - "8085:8085"
     depends_on:
