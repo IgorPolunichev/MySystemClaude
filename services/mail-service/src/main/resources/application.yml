@@ -14,6 +14,24 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:false}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:false}
+      mail.smtp.connectiontimeout: 10000
+      mail.smtp.timeout: 30000
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:acts}
+    password: ${RABBITMQ_PASSWORD:acts}
+  servlet:
+    multipart:
+      max-file-size: 5MB
   mvc:
     problemdetails:
       enabled: true
@@ -32,6 +50,16 @@ server:
 
 app:
   version: "@project.version@"
+  mail:
+    # Общий ящик, от которого уходят письма; адрес пользователя ставится в Reply-To
+    from: ${MAIL_FROM:acts@company.local}
+    delivery-enabled: ${MAIL_DELIVERY_ENABLED:true}
+    delivery-interval-ms: 10000
+  outbox:
+    publish-enabled: ${OUTBOX_PUBLISH_ENABLED:false}
+  clients:
+    act-url: ${ACT_SERVICE_URL:http://localhost:8083}
+    document-url: ${DOCUMENT_SERVICE_URL:http://localhost:8085}
 
 info:
   app:

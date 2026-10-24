@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /** Контекст поднимается на реальном PostgreSQL, миграции Flyway применяются. Требуется Docker. */
-@SpringBootTest
+@SpringBootTest(properties = "app.mail.delivery-enabled=false")
 class MailApplicationIT extends PostgresIntegrationTest {
 
     @Autowired

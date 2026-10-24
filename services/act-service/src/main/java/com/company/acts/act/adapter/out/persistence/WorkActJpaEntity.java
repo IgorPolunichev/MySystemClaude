@@ -50,6 +50,12 @@ public class WorkActJpaEntity extends AuditedJpaEntity {
     @Column(name = "site_address")
     private String siteAddress;
 
+    @Column(name = "last_sent_at", insertable = false, updatable = false)
+    private Instant lastSentAt;
+
+    @Column(name = "sent_count", insertable = false, updatable = false)
+    private int sentCount;
+
     @Column(name = "has_signed_scan", insertable = false, updatable = false)
     private boolean hasSignedScan;
 
@@ -563,5 +569,13 @@ public class WorkActJpaEntity extends AuditedJpaEntity {
 
     public void setSiteCode(String siteCode) {
         this.siteCode = siteCode;
+    }
+
+    public Instant getLastSentAt() {
+        return lastSentAt;
+    }
+
+    public int getSentCount() {
+        return sentCount;
     }
 }

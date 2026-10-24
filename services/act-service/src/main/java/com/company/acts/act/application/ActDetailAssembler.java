@@ -42,7 +42,7 @@ class ActDetailAssembler {
         List<TimeEntry> entries = timeEntries.findByAct(act.id()).stream()
                 .sorted(Comparator.comparing(TimeEntry::workDate)).toList();
         WorkPeriod period = WorkPeriod.of(act, entries);
-        Instant[] ts = acts.timestamps(act.id()).orElse(new Instant[] {null, null});
+        Instant[] ts = acts.timestamps(act.id()).orElse(new Instant[] {null, null, null});
 
         var org = act.organization() == null ? null : new ActDetail.Organization(act.organization().id(),
                 act.organization().name(), act.organization().shortName(), act.organization().inn(),
@@ -89,7 +89,7 @@ class ActDetailAssembler {
                 act.workStartOverride() != null || act.workEndOverride() != null, period.calendarDays(),
                 period.workedDays(), act.shortDescription(), act.detailedDescription(), act.recommendations(),
                 act.customerRepName(), act.customerRepPosition(), act.hideRequisites(), act.hideTravelTime(),
-                act.authorEngineerId(), ts[0], ts[1], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
+                act.authorEngineerId(), ts[0], ts[1], ts[2], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
                 photoViews, attachmentViews,
                 TimeEntry.hoursOf(entries.stream().mapToLong(TimeEntry::workMinutes).sum()),
                 sum(entries.stream().map(TimeEntry::travelHours).filter(Objects::nonNull)),

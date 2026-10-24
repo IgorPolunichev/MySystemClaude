@@ -79,6 +79,8 @@ class ActScenariosIT extends PostgresIntegrationTest {
     @Autowired
     FakeMedia media;
     @Autowired
+    com.company.acts.act.application.EmailSentHandler emailSent;
+    @Autowired
     com.company.acts.act.application.ActAttachmentService attachments;
 
     /** Поддельный media-service: файл «загружен» для указанного владельца. */
@@ -461,5 +463,26 @@ class ActScenariosIT extends PostgresIntegrationTest {
                 PageQuery.of(0, 10, null)).items()).extracting(x -> x.id()).containsExactly(b.id());
         assertThat(acts.search(new ActSearchQuery("Инженер " + author, null, null, null, null, null, null, null),
                 PageQuery.of(0, 10, null)).items()).extracting(x -> x.id()).contains(a.id(), b.id());
+    }
+
+    @Test
+    void emailSentEventMarksActsOnce() {
+        login(user());
+        ActDetail act = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        assertThat(act.lastSentAt()).isNull();
+        java.util.Map<String, Object> envelope = new java.util.LinkedHashMap<>();
+        envelope.put("eventId", UUID.randomUUID().toString());
+        envelope.put("eventType", "EmailSent");
+        envelope.put("aggregateId", UUID.randomUUID().toString());
+        envelope.put("payload", java.util.Map.of("actIds", List.of(act.id().toString()), "sentAt", "2026-10-20T09:15:00Z",
+                "mode", "SMTP"));
+        emailSent.handle(envelope);
+        emailSent.handle(envelope);
+        ActDetail sent = acts.get(act.id());
+        assertThat(sent.lastSentAt()).isEqualTo(java.time.Instant.parse("2026-10-20T09:15:00Z"));
+        assertThat(jdbc.queryForObject("select sent_count from work_act where id = ?", Integer.class, act.id())).isEqualTo(1);
+        assertThat(acts.search(new ActSearchQuery(null, null, null, null, null, null, null, null), PageQuery.of(0, 200, null))
+                .items()).filteredOn(x -> x.id().equals(act.id())).singleElement()
+                .satisfies(x -> assertThat(x.lastSentAt()).isNotNull());
     }
 }

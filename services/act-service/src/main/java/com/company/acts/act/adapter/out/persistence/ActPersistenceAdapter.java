@@ -62,7 +62,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
 
     @Override
     public Optional<Instant[]> timestamps(UUID id) {
-        return repository.findById(id).map(e -> new Instant[] {e.getCreatedAt(), e.getUpdatedAt()});
+        return repository.findById(id).map(e -> new Instant[] {e.getCreatedAt(), e.getUpdatedAt(), e.getLastSentAt()});
     }
 
     @Override
@@ -284,7 +284,8 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
                 start == null ? null : start.toLocalDate(), end == null ? null : end.toLocalDate(),
                 rs.getBigDecimal("total_hours"), rs.getString("engineer_names"),
                 created == null ? null : created.toInstant(), updated == null ? null : updated.toInstant(),
-                rs.getBoolean("has_signed_scan"), rs.getString("site_name"), rs.getString("highlight"));
+                rs.getBoolean("has_signed_scan"), rs.getString("site_name"), rs.getString("highlight"),
+                rs.getTimestamp("last_sent_at") == null ? null : rs.getTimestamp("last_sent_at").toInstant());
     }
 
     @Override

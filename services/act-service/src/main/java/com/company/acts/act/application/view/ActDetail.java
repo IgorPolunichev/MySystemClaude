@@ -40,6 +40,7 @@ public record ActDetail(
         UUID authorEngineerId,
         Instant createdAt,
         Instant updatedAt,
+        Instant lastSentAt,
         Instant closedAt,
         String closedBy,
         List<ParticipantView> engineers,

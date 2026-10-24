@@ -15,6 +15,7 @@ public interface ActRepository {
     Optional<WorkAct> findById(UUID id);
 
     /** Время создания и последнего изменения акта. */
+    /** [создан, изменён, последняя отправка письмом]. */
     Optional<Instant[]> timestamps(UUID id);
 
     WorkAct save(WorkAct act);

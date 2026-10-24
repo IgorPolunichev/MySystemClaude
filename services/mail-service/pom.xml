@@ -23,6 +23,29 @@
             <artifactId>common-events</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.company.acts</groupId>
+            <artifactId>common-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.company.acts</groupId>
+            <artifactId>common-import</artifactId>
+        </dependency>
+        <!-- SMTP и формирование писем (.eml) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- Шаблоны писем -->
+        <dependency>
+            <groupId>org.freemarker</groupId>
+            <artifactId>freemarker</artifactId>
+        </dependency>
+        <!-- Событие EmailSent через RabbitMQ (outbox), ADR 0014 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>

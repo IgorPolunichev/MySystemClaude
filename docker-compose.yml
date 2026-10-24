@@ -190,6 +190,7 @@ services:
       PARTS_SERVICE_URL: http://parts-service:8082
       MEDIA_SERVICE_URL: http://media-service:8084
       OUTBOX_PUBLISH_ENABLED: "true"
+      EVENTS_LISTEN: "true"
     ports:
       - "8083:8083"
     depends_on:
@@ -291,6 +292,10 @@ services:
       DB_PASSWORD: mail
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
+      MAIL_FROM: ${MAIL_FROM:-acts@company.local}
+      ACT_SERVICE_URL: http://act-service:8083
+      DOCUMENT_SERVICE_URL: http://document-service:8085
+      OUTBOX_PUBLISH_ENABLED: "true"
     ports:
       - "8087:8087"
     depends_on:
