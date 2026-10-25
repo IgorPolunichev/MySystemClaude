@@ -309,6 +309,16 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
     }
 
     @Override
+    public List<UUID> idsForDevice(String userId, Instant changedSince, int limit) {
+        return jdbc.query("""
+                select w.id from work_act w
+                where exists (select 1 from act_participant p where p.act_id = w.id and p.keycloak_user_id = ?)
+                  and (w.status in ('DRAFT', 'OPEN') or w.updated_at >= ?)
+                order by w.updated_at desc limit ?
+                """, (rs, n) -> rs.getObject("id", UUID.class), userId, java.sql.Timestamp.from(changedSince), limit);
+    }
+
+    @Override
     public int deleteCancelledBefore(Instant before) {
         em.flush();
         return jdbc.update("delete from work_act where status = 'CANCELLED' and updated_at < ?",

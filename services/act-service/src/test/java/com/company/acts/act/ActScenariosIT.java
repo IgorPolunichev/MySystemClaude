@@ -485,4 +485,21 @@ class ActScenariosIT extends PostgresIntegrationTest {
                 .items()).filteredOn(x -> x.id().equals(act.id())).singleElement()
                 .satisfies(x -> assertThat(x.lastSentAt()).isNotNull());
     }
+
+    @Test
+    void deviceSetContainsOnlyMyActs() {
+        String me = user();
+        login(me);
+        ActDetail mine = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        String other = user();
+        login(other);
+        ActDetail foreign = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        login(me);
+        assertThat(acts.forDevice(90)).extracting(ActDetail::id).contains(mine.id()).doesNotContain(foreign.id());
+        // повтор создания с тем же id (повторная отправка из очереди устройства) не создаёт дубль
+        UUID clientId = UUID.randomUUID();
+        ActDetail first = acts.create(new ActCreateCommand(clientId, UUID.randomUUID()));
+        ActDetail again = acts.create(new ActCreateCommand(clientId, UUID.randomUUID()));
+        assertThat(again.id()).isEqualTo(first.id()).isEqualTo(clientId);
+    }
 }

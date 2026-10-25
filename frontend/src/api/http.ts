@@ -28,18 +28,48 @@ function authHeaders(init?: HeadersInit): Headers {
 /**
  * Единственная точка обращения к серверу: добавляет токен и разбирает ошибки.
  * Используется сгенерированным клиентом Orval; напрямую вызывать не нужно.
+ *
+ * Офлайн (раздел 17 SPEC.md): без связи чтение актов и справочников идёт из локальной базы, а изменения актов
+ * применяются на устройстве и встают в очередь. Изменения акта с неотправленными операциями тоже идут в очередь,
+ * чтобы сохранить порядок. Со связью полученные карточки актов сохраняются на устройство.
  */
 export async function apiFetch<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase();
+  const target = new URL(url, window.location.origin);
+  const body = typeof options.body === 'string' ? safeJson(options.body) : undefined;
+  const offline = await import('../offline/gateway');
+
+  if (await offline.mustHandleLocally(method, target.pathname, body)) {
+    return (await offline.handleLocally(method, target, body)) as T;
+  }
+
   const headers = authHeaders(options.headers);
   headers.set('Accept', 'application/json, application/problem+json');
-
-  const response = await fetch(url, { ...options, headers });
-  const body = await response.text();
-  const parsed = body ? safeJson(body) : undefined;
+  let response: Response;
+  try {
+    response = await fetch(url, { ...options, headers });
+  } catch (e) {
+    if (offline.canHandleLocally(method, target.pathname)) {
+      offline.markOffline();
+      return (await offline.handleLocally(method, target, body)) as T;
+    }
+    throw new ApiError(0, {
+      title: 'Нет связи с сервером',
+      detail: e instanceof Error ? e.message : undefined,
+    });
+  }
+  if ([502, 503, 504].includes(response.status) && offline.canHandleLocally(method, target.pathname)) {
+    offline.markOffline();
+    return (await offline.handleLocally(method, target, body)) as T;
+  }
+  const text = await response.text();
+  const parsed = text ? safeJson(text) : undefined;
 
   if (!response.ok) {
     throw new ApiError(response.status, typeof parsed === 'object' ? (parsed as ProblemBody) : undefined);
   }
+  offline.markOnline();
+  void offline.remember(method, target.pathname, parsed);
   return { data: parsed, status: response.status, headers: response.headers } as T;
 }
 

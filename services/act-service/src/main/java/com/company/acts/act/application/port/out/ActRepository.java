@@ -20,6 +20,12 @@ public interface ActRepository {
 
     WorkAct save(WorkAct act);
 
+    /**
+     * Акты пользователя для офлайн-работы (раздел 17.3 SPEC.md): где он участник — черновики и открытые акты
+     * целиком плюс любые изменённые после указанного момента; не больше limit, новые первыми.
+     */
+    List<UUID> idsForDevice(String userId, Instant changedSince, int limit);
+
     /** Физическое удаление акта вместе со всем содержимым. */
     void delete(UUID id);
 

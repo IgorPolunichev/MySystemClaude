@@ -48,6 +48,7 @@ import {
   type SavedFilter,
 } from './savedFilters';
 import { MailComposer } from '../mail/MailComposer';
+import { uuidv7 } from '../../offline/uuid';
 
 /** Создание акта: сразу выбрать технику (можно пропустить и выбрать позже). */
 function NewActDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -57,7 +58,7 @@ function NewActDialog({ open, onClose }: { open: boolean; onClose: () => void })
   const [equipmentId, setEquipmentId] = useState<string>();
   const submit = async () => {
     try {
-      const act = ok(await create.mutateAsync({ data: { equipmentId: equipmentId ?? null } }))!;
+      const act = ok(await create.mutateAsync({ data: { id: uuidv7(), equipmentId: equipmentId ?? null } }))!;
       onClose();
       navigate(`/acts/${act.id}`);
     } catch (e) {

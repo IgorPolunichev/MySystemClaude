@@ -94,6 +94,15 @@ public class ActService {
         return acts.search(query.withParticipant(users.current().userId()), page);
     }
 
+    /** Карточки моих актов для работы без связи; days — глубина для закрытых и аннулированных. */
+    @Transactional(readOnly = true)
+    public List<ActDetail> forDevice(int days) {
+        int depth = Math.max(1, Math.min(days, 366));
+        CurrentUser user = users.current();
+        return acts.idsForDevice(user.userId(), Instant.now(clock).minus(java.time.Duration.ofDays(depth)), 500).stream()
+                .map(id -> assembler.assemble(loader.load(id))).toList();
+    }
+
     @Transactional(readOnly = true)
     public ActDetail get(UUID id) {
         return assembler.assemble(loader.load(id));

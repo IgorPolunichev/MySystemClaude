@@ -137,6 +137,12 @@ class ActController {
                 partNumber, shortDescription, signedScan);
     }
 
+    /** Мои акты для офлайн-работы: черновики, открытые и изменённые за days дней (по умолчанию 90). */
+    @GetMapping("/device")
+    List<ActDetail> forDevice(@RequestParam(defaultValue = "90") int days) {
+        return acts.forDevice(days);
+    }
+
     @GetMapping("/short-descriptions")
     List<String> shortDescriptions(@RequestParam(required = false) String q) {
         return acts.shortDescriptions(q);

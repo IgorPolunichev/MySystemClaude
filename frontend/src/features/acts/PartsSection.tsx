@@ -25,6 +25,7 @@ import type { ActDetail, ActPartLine, PartLineInput } from '../../api/generated/
 import { useListParts } from '../../api/generated/parts/parts';
 import { useListUnits } from '../../api/generated/parts/units';
 import { ok } from '../../api/unwrap';
+import { uuidv7 } from '../../offline/uuid';
 import { applyFormError, errorText } from '../../shared/lib/apiErrors';
 
 const qty = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
@@ -72,7 +73,7 @@ function PartLineDialog({
     const data: PartLineInput = { ...initial, ...values, source: values.source ?? 'MANUAL' };
     try {
       if (line) await update.mutateAsync({ id: act.id, lineId: line.id, data });
-      else await add.mutateAsync({ id: act.id, data });
+      else await add.mutateAsync({ id: act.id, data: { ...data, id: uuidv7() } as PartLineInput });
       await client.invalidateQueries({ queryKey: getGetActQueryKey(act.id) });
       onClose();
     } catch (e) {

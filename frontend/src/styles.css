@@ -724,3 +724,21 @@ body {
   border: 1px solid var(--line);
   padding: 4px 6px;
 }
+
+/* ---------- Офлайн (этап 9.1) ---------- */
+.sync-indicator.online {
+  color: #2e8b57;
+  border-color: rgba(46, 139, 87, 0.45);
+}
+
+.sync-indicator.offline {
+  color: #b5562b;
+  border-color: rgba(181, 86, 43, 0.6);
+  background: rgba(181, 86, 43, 0.08);
+}
+
+@media (max-width: 600px) {
+  .sync-label {
+    display: none;
+  }
+}

@@ -1,6 +1,9 @@
+import { SyncIndicator } from '../offline/SyncIndicator';
+import { clearLocalData, db } from '../offline/db';
 import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Button, Drawer, Grid, Layout, Menu, Space, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Drawer, Grid, Layout, Menu, Space, Tag, Tooltip, Typography } from 'antd';
+
 import { LogoutOutlined, MenuOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
 import { useAuth } from 'react-oidc-context';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +28,24 @@ function Nameplate() {
 
 export function AppLayout({ themeMode, onToggleTheme }: Props) {
   const auth = useAuth();
+  const { modal } = App.useApp();
+  /** Выход очищает локальную базу; с неотправленными данными — только после подтверждения (раздел 17.7). */
+  const logout = async () => {
+    const pending = await db.outbox.count().catch(() => 0);
+    const leave = async () => {
+      await clearLocalData().catch(() => undefined);
+      await auth.signoutRedirect();
+    };
+    if (pending === 0) return leave();
+    modal.confirm({
+      title: 'Есть неотправленные изменения',
+      content: `На устройстве ${pending} неотправленных изменений. После выхода они будут удалены. Сначала синхронизируйтесь, когда появится связь.`,
+      okText: 'Всё равно выйти',
+      okButtonProps: { danger: true },
+      cancelText: 'Остаться',
+      onOk: leave,
+    });
+  };
   const { t } = useTranslation();
   const location = useLocation();
   const screens = Grid.useBreakpoint();
@@ -96,7 +117,8 @@ export function AppLayout({ themeMode, onToggleTheme }: Props) {
                 onClick={onToggleTheme}
               />
             </Tooltip>
-            <Button icon={<LogoutOutlined />} onClick={() => void auth.signoutRedirect()}>
+            <SyncIndicator />
+            <Button icon={<LogoutOutlined />} onClick={() => void logout()}>
               {!isMobile && t('app.signOut')}
             </Button>
           </Space>
