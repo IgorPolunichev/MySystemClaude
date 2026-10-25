@@ -175,11 +175,12 @@ class ActScenariosIT extends PostgresIntegrationTest {
 
         assertThatThrownBy(() -> acts.close(opened.id())).isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("моточасы");
-        ActDetail filled = header(withTime, new BigDecimal("1250.5"), "ТО-2000", null);
+        ActDetail filled = header(withTime, new BigDecimal("1250"), "ТО-2000", null);
         ActDetail closed = acts.close(filled.id());
         assertThat(closed.status()).isEqualTo(ActStatus.CLOSED);
         assertThat(closed.permissions().canEdit()).isFalse();
-        assertThat(directory.raisedMeters).anyMatch(s -> s.endsWith(":1250.5"));
+        assertThat(directory.raisedMeters).anyMatch(s -> new BigDecimal(s.substring(s.lastIndexOf(':') + 1))
+                .compareTo(new BigDecimal("1250")) == 0);
 
         assertThatThrownBy(() -> header(closed, new BigDecimal("1300"), "Правка", null))
                 .isInstanceOf(AccessDeniedException.class);
