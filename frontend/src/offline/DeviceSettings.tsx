@@ -20,6 +20,25 @@ export function DeviceSettings({ open, onClose }: { open: boolean; onClose: () =
   const [counts, setCounts] = useState({ acts: 0, equipment: 0 });
   const [pin, setPin] = useState(false);
 
+  const [loading, setLoading] = useState(false);
+  const reload = async () => {
+    setOrganizations((await getRef<Organization[]>('organizations')) ?? []);
+    setSites((await getRef<Record<string, Site[]>>('sites')) ?? {});
+    setCounts({
+      acts: await db.acts.count(),
+      equipment: ((await getRef<unknown[]>('equipment')) ?? []).length,
+    });
+  };
+  const loadNow = async () => {
+    setLoading(true);
+    try {
+      await syncNow(true);
+      await reload();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!open) return;
     void (async () => {
@@ -78,14 +97,17 @@ export function DeviceSettings({ open, onClose }: { open: boolean; onClose: () =
         90 дней будут доступны без связи всем пользователям ПК.
       </Typography.Paragraph>
       <Form layout="vertical">
-        <Form.Item
-          label="Заказчики"
-          extra={
-            organizations.length === 0
-              ? 'Справочники ещё не загружены — нажмите «Синхронизировать» при связи'
-              : undefined
-          }
-        >
+        {organizations.length === 0 && (
+          <Button
+            type="primary"
+            loading={loading}
+            style={{ marginBottom: 12 }}
+            onClick={() => void loadNow()}
+          >
+            Загрузить справочники сейчас
+          </Button>
+        )}
+        <Form.Item label="Заказчики">
           <Select
             mode="multiple"
             value={scope.organizationIds}

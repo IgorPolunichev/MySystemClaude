@@ -3,7 +3,7 @@ import { DeviceSettings } from './DeviceSettings';
 import { App, Badge, Button, Drawer, Empty, List, Space, Tag, Tooltip, Typography } from 'antd';
 import { CloudOutlined, DesktopOutlined, DisconnectOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { db, type OutboxOp } from './db';
+import { db, getMeta, getRef, type OutboxOp } from './db';
 import { useNetwork } from './network';
 import { dropOperation, refreshQueueState, resolveConflict, startSync, syncNow } from './sync';
 
@@ -13,15 +13,28 @@ const time = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: '
 function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [ops, setOps] = useState<OutboxOp[]>([]);
   const [settings, setSettings] = useState(false);
+  const [summary, setSummary] = useState<{
+    acts: number;
+    equipment: number;
+    refsAt?: number;
+    error?: string | null;
+  }>();
   const state = useNetwork();
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    const load = () =>
-      db.outbox
-        .orderBy('seq')
-        .toArray()
-        .then((list) => alive && setOps(list));
+    const load = async () => {
+      const [list, acts, equipment, refsAt, error] = await Promise.all([
+        db.outbox.orderBy('seq').toArray(),
+        db.acts.count(),
+        getRef<unknown[]>('equipment'),
+        getMeta<number>('refsAt'),
+        getMeta<string | null>('lastSyncError'),
+      ]);
+      if (!alive) return;
+      setOps(list);
+      setSummary({ acts, equipment: equipment?.length ?? 0, refsAt, error });
+    };
     void load();
     const timer = setInterval(() => void load(), 2000);
     return () => {
@@ -48,6 +61,15 @@ function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) 
             ? 'Синхронизировать сейчас (и обновить справочники)'
             : 'Проверить связь и синхронизировать'}
         </Button>
+        {summary && (
+          <Typography.Text type="secondary">
+            На ПК: актов — {summary.acts}, единиц техники — {summary.equipment}; справочники загружены:{' '}
+            {summary.refsAt ? time.format(summary.refsAt) : 'ещё нет'}
+          </Typography.Text>
+        )}
+        {summary?.error && (
+          <Typography.Text type="danger">Последняя ошибка синхронизации: {summary.error}</Typography.Text>
+        )}
         <Button icon={<DesktopOutlined />} onClick={() => setSettings(true)}>
           Настройки этого ПК
         </Button>

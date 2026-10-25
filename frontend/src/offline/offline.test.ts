@@ -4,7 +4,10 @@ import type { Engineer, Equipment } from '../api/generated/directory/model';
 import { db } from './db';
 import { network } from './network';
 
-vi.mock('../app/auth/tokenStore', () => ({ getAccessToken: () => 'token' }));
+vi.mock('../app/auth/tokenStore', () => ({
+  getAccessToken: () => 'token',
+  onAccessToken: () => () => undefined,
+}));
 
 const me = { id: 'e1', fullName: 'Петров И. С.', active: true } as Engineer;
 const equipment = [
@@ -216,5 +219,46 @@ describe('офлайн: акт без связи → очередь → синх
     await syncNow();
     expect(calls.some((u) => u.includes('a-other'))).toBe(false);
     expect(await db.outbox.count()).toBe(1);
+  });
+
+  it('справочники загружаются по отдельности: ошибка одного не мешает остальным', async () => {
+    await db.refs.clear();
+    await db.meta.delete('refsAt');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.startsWith('/api/v1/equipment')) return new Response('{}', { status: 500 });
+        if (url.startsWith('/api/v1/organizations?')) {
+          return new Response(
+            JSON.stringify({ items: [{ id: 'o1', name: 'АО «Тест»' }], totalElements: 1 }),
+            { status: 200 },
+          );
+        }
+        if (url.startsWith('/api/v1/acts/device')) return new Response('[]', { status: 200 });
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow();
+    expect((await db.refs.get('organizations'))?.data).toEqual([{ id: 'o1', name: 'АО «Тест»' }]);
+    expect(await db.refs.get('equipment')).toBeUndefined();
+    expect(String((await db.meta.get('lastSyncError'))?.value)).toContain('equipment');
+  });
+
+  it('«Мои» без связи: если карточки инженера на ПК нет — по отметке «вы участник» из акта', async () => {
+    const detail = {
+      id: 'a9',
+      status: 'OPEN',
+      number: 'АВР-1',
+      engineers: [{ engineerId: 'eX', isCurrentUser: true }],
+      timeEntries: [],
+    };
+    await db.acts.put({ id: 'a9', detail: detail as never, localOnly: false, savedAt: 0 });
+    await db.refs.delete('me:');
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    const list = await apiFetch<{ data: { items: { number: string }[] } }>('/api/v1/acts?mine=true');
+    expect(list.data.items.map((i) => i.number)).toContain('АВР-1');
   });
 });

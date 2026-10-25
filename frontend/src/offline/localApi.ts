@@ -91,7 +91,12 @@ export async function localGet(path: string, params: URLSearchParams): Promise<L
     const meId = (await loadRefs()).me?.id;
     const mine = params.get('mine') === 'true';
     const list = (await db.acts.toArray())
-      .filter((s) => !mine || s.detail.engineers.some((e) => e.engineerId === meId) || s.localOnly)
+      .filter(
+        (s) =>
+          !mine ||
+          s.localOnly ||
+          s.detail.engineers.some((e) => (meId ? e.engineerId === meId : e.isCurrentUser)),
+      )
       .filter((s) => !statuses.length || statuses.includes(s.detail.status))
       .filter((s) =>
         contains(

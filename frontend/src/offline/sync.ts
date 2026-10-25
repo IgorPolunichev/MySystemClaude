@@ -1,5 +1,5 @@
 import type { ActDetail } from '../api/generated/acts/model';
-import { getAccessToken } from '../app/auth/tokenStore';
+import { getAccessToken, onAccessToken } from '../app/auth/tokenStore';
 import { db, getMeta, setMeta, type OutboxOp } from './db';
 import { network } from './network';
 import { getDeviceScope } from './db';
@@ -118,6 +118,7 @@ async function pages<T>(url: string): Promise<T[]> {
   const all: T[] = [];
   for (let page = 0; page < 100; page++) {
     const r = await call('GET', `${url}${url.includes('?') ? '&' : '?'}page=${page}&size=200`);
+    if (r.status !== 200) throw new Error(`ответ ${r.status}`);
     const items = (r.data as { items?: T[]; totalElements?: number })?.items ?? [];
     all.push(...items);
     if (items.length < 200) break;
@@ -134,6 +135,7 @@ async function pull(forceRefs: boolean): Promise<void> {
     ...(scope.siteIds.length ? [] : scope.organizationIds.map((id) => `organizationId=${id}`)),
   ].join('&');
   const r = await call('GET', `/api/v1/acts/device?${query}`);
+  if (r.status !== 200) await setMeta('lastSyncError', `акты: ответ ${r.status}`);
   if (r.status === 200 && Array.isArray(r.data)) {
     const server = r.data as ActDetail[];
     const pendingActs = new Set((await db.outbox.toArray()).map((o) => o.actId));
@@ -156,34 +158,43 @@ async function pull(forceRefs: boolean): Promise<void> {
     });
   }
   const last = (await getMeta<number>('refsAt')) ?? 0;
-  if (!forceRefs && Date.now() - last < REFS_TTL) return;
-  const [equipment, engineers, organizations, parts, executors, units, me] = await Promise.all([
-    pages('/api/v1/equipment'),
-    pages('/api/v1/engineers?active=true'),
-    pages('/api/v1/organizations'),
-    pages('/api/v1/parts'),
-    call('GET', '/api/v1/executors?includeInactive=false'),
-    call('GET', '/api/v1/units'),
-    call('GET', '/api/v1/engineers/me'),
-  ]);
-  const orgIds = [...new Set((equipment as { organizationId: string }[]).map((e) => e.organizationId))];
-  const sites: Record<string, unknown> = {};
-  for (const id of orgIds) {
-    const s = await call('GET', `/api/v1/organizations/${id}/sites`);
-    if (s.status === 200) sites[id] = s.data;
-  }
+  const haveRefs = (await db.refs.get('organizations')) && (await db.refs.get('equipment'));
+  if (!forceRefs && haveRefs && Date.now() - last < REFS_TTL) return;
+  // Каждый справочник — отдельно: ошибка одного не мешает остальным; текст ошибки — в журнале синхронизации.
+  const errors: string[] = [];
   const now = Date.now();
-  await db.refs.bulkPut([
-    { key: 'equipment', data: equipment, savedAt: now },
-    { key: 'engineers', data: engineers, savedAt: now },
-    { key: 'organizations', data: organizations, savedAt: now },
-    { key: 'parts', data: parts, savedAt: now },
-    { key: 'executors', data: executors.status === 200 ? executors.data : [], savedAt: now },
-    { key: 'units', data: units.status === 200 ? units.data : [], savedAt: now },
-    { key: 'sites', data: sites, savedAt: now },
-    ...(me.status === 200 ? [{ key: `me:${currentUsername() ?? ''}`, data: me.data, savedAt: now }] : []),
-  ]);
+  const put = async (key: string, load: () => Promise<unknown>) => {
+    try {
+      await db.refs.put({ key, data: await load(), savedAt: now });
+    } catch (e) {
+      errors.push(`${key}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+  const one = async (url: string) => {
+    const r = await call('GET', url);
+    if (r.status !== 200) throw new Error(`ответ ${r.status}`);
+    return r.data;
+  };
+  await put('equipment', () => pages('/api/v1/equipment'));
+  await put('engineers', () => pages('/api/v1/engineers?active=true'));
+  await put('organizations', () => pages('/api/v1/organizations'));
+  await put('parts', () => pages('/api/v1/parts'));
+  await put('executors', () => one('/api/v1/executors?includeInactive=false'));
+  await put('units', () => one('/api/v1/units'));
+  await put(`me:${currentUsername() ?? ''}`, () => one('/api/v1/engineers/me'));
+  await put('sites', async () => {
+    const equipment = ((await db.refs.get('equipment'))?.data ?? []) as { organizationId: string }[];
+    const orgs = ((await db.refs.get('organizations'))?.data ?? []) as { id: string }[];
+    const ids = [...new Set([...equipment.map((e) => e.organizationId), ...orgs.map((o) => o.id)])];
+    const sites: Record<string, unknown> = {};
+    for (const id of ids) {
+      const r = await call('GET', `/api/v1/organizations/${id}/sites`);
+      if (r.status === 200) sites[id] = r.data;
+    }
+    return sites;
+  });
   await setMeta('refsAt', now);
+  await setMeta('lastSyncError', errors.length ? errors.join('; ') : null);
 }
 
 /** Синхронизировать сейчас (по кнопке, при появлении сети, при запуске и по таймеру). */
@@ -197,9 +208,11 @@ export function syncNow(forceRefs = false): Promise<void> {
         await pull(forceRefs);
         network.setOnline(true);
       }
-    } catch {
+    } catch (e) {
       network.setOnline(false);
+      await setMeta('lastSyncError', e instanceof Error ? e.message : String(e)).catch(() => undefined);
     } finally {
+      await setMeta('lastSyncAt', Date.now()).catch(() => undefined);
       await refreshQueueState();
       network.setSyncing(false);
       running = null;
@@ -250,6 +263,10 @@ export function startSync(): void {
   started = true;
   void navigator.storage?.persist?.();
   void checkStorage();
+  // Синхронизация сразу после входа: токен появляется чуть позже, чем запускается приложение.
+  onAccessToken((token) => {
+    if (token) void syncNow();
+  });
   window.addEventListener('online', () => void syncNow());
   // Со связью — раз в 2 минуты; без связи — каждые 15 секунд проверяем, не появилась ли она.
   let last = Date.now();
