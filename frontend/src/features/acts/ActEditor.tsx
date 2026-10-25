@@ -52,6 +52,7 @@ import { PartsSection } from './PartsSection';
 import { PhotosSection } from './PhotosSection';
 import { AttachmentsSection } from './AttachmentsSection';
 import { MailComposer } from '../mail/MailComposer';
+import { network } from '../../offline/network';
 import { JournalPage } from '../mail/JournalPage';
 import { Timesheet } from './Timesheet';
 
@@ -143,12 +144,33 @@ function ActActions({ act }: { act: ActDetail }) {
   const [mails, setMails] = useState(false);
   const p = act.permissions;
 
+  /** Со связью Excel формирует сервер; без связи — этот ПК из карточки акта и сохранённых фото (решение 19.13). */
   const download = async () => {
     setDownloading(true);
+    const offlineCopy = async () => {
+      const { downloadActOffline } = await import('../../offline/print/printOffline');
+      const r = await downloadActOffline(act);
+      message.info(
+        `Нет связи: Excel сформирован на этом ПК${r.missing ? `; фото не сохранены на ПК: ${r.missing}` : ''}`,
+      );
+    };
     try {
+      if (!network.get().online || !navigator.onLine) {
+        await offlineCopy();
+        return;
+      }
       await downloadFile(`/api/v1/documents/acts/${act.id}/xlsx`, `${act.number ?? 'Черновик'}.xlsx`);
     } catch (e) {
-      message.error(errorText(e));
+      const unreachable = !(e instanceof ApiError) || e.status === 0 || e.status >= 502;
+      if (unreachable) {
+        try {
+          await offlineCopy();
+        } catch (inner) {
+          message.error(errorText(inner));
+        }
+      } else {
+        message.error(errorText(e));
+      }
     } finally {
       setDownloading(false);
     }

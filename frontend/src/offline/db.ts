@@ -37,6 +37,13 @@ export interface RefRow {
   savedAt: number;
 }
 
+/** Файл на ПК: превью и оригиналы фото (для показа и печати без связи). key = `${mediaId}:${variant}`. */
+export interface FileRow {
+  key: string;
+  blob: Blob;
+  savedAt: number;
+}
+
 export interface MetaRow {
   key: string;
   value: unknown;
@@ -47,10 +54,12 @@ class OfflineDb extends Dexie {
   outbox!: Table<OutboxOp, number>;
   refs!: Table<RefRow, string>;
   meta!: Table<MetaRow, string>;
+  files!: Table<FileRow, string>;
 
   constructor() {
     super('acts-offline');
     this.version(1).stores({ acts: 'id, savedAt', outbox: '++seq, actId, status', refs: 'key', meta: 'key' });
+    this.version(2).stores({ files: 'key, savedAt' });
   }
 }
 
@@ -80,5 +89,5 @@ export async function getDeviceScope(): Promise<DeviceScope> {
 
 /** Полная очистка данных на ПК — только по явной команде (данные принадлежат ПК, а не пользователю). */
 export async function clearLocalData(): Promise<void> {
-  await Promise.all([db.acts.clear(), db.outbox.clear(), db.refs.clear(), db.meta.clear()]);
+  await Promise.all([db.acts.clear(), db.outbox.clear(), db.refs.clear(), db.meta.clear(), db.files.clear()]);
 }

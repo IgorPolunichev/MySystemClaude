@@ -159,6 +159,7 @@ async function pull(forceRefs: boolean): Promise<void> {
       }
     });
   }
+  await prefetchThumbnails();
   const last = (await getMeta<number>('refsAt')) ?? 0;
   const haveRefs = (await db.refs.get('organizations')) && (await db.refs.get('equipment'));
   if (!forceRefs && haveRefs && Date.now() - last < REFS_TTL) return;
@@ -197,6 +198,31 @@ async function pull(forceRefs: boolean): Promise<void> {
   });
   await setMeta('refsAt', now);
   await setMeta('lastSyncError', errors.length ? errors.join('; ') : null);
+}
+
+/**
+ * Превью фото актов на ПК — для показа и печати техотчёта без связи. Загружаются только недостающие, не больше
+ * 300 за одну синхронизацию; превью неактуальных актов удаляются.
+ */
+async function prefetchThumbnails(): Promise<void> {
+  const acts = await db.acts.toArray();
+  const needed = new Set(acts.flatMap((a) => a.detail.photos.map((p) => `${p.mediaId}:thumbnail`)));
+  const have = new Set((await db.files.toCollection().primaryKeys()) as string[]);
+  const missing = [...needed].filter((k) => !have.has(k)).slice(0, 300);
+  for (const key of missing) {
+    const mediaId = key.split(':')[0];
+    const headers = new Headers();
+    const token = getAccessToken();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    try {
+      const r = await fetch(`/api/v1/media/${mediaId}/content?variant=thumbnail`, { headers });
+      if (r.ok) await db.files.put({ key, blob: await r.blob(), savedAt: Date.now() });
+    } catch {
+      return;
+    }
+  }
+  const stale = [...have].filter((k) => k.endsWith(':thumbnail') && !needed.has(k));
+  if (stale.length) await db.files.bulkDelete(stale);
 }
 
 /** Синхронизировать сейчас (по кнопке, при появлении сети, при запуске и по таймеру). */
