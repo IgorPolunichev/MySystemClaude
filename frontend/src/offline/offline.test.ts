@@ -4,8 +4,9 @@ import type { Engineer, Equipment } from '../api/generated/directory/model';
 import { db } from './db';
 import { network } from './network';
 
+const auth = vi.hoisted(() => ({ token: 'token' as string | undefined }));
 vi.mock('../app/auth/tokenStore', () => ({
-  getAccessToken: () => 'token',
+  getAccessToken: () => auth.token,
   onAccessToken: () => () => undefined,
 }));
 
@@ -260,5 +261,25 @@ describe('офлайн: акт без связи → очередь → синх
     const { apiFetch } = await import('../api/http');
     const list = await apiFetch<{ data: { items: { number: string }[] } }>('/api/v1/acts?mine=true');
     expect(list.data.items.map((i) => i.number)).toContain('АВР-1');
+  });
+
+  it('синхронизация до входа не «залипает»: после появления пропуска она выполняется', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        return new Response(url.startsWith('/api/v1/acts/device') ? '[]' : JSON.stringify({ items: [] }), {
+          status: 200,
+        });
+      }),
+    );
+    const { syncNow } = await import('./sync');
+    auth.token = undefined;
+    await syncNow();
+    expect(calls).toHaveLength(0);
+    auth.token = 'token';
+    await syncNow();
+    expect(calls.some((u) => u.startsWith('/api/v1/acts/device'))).toBe(true);
   });
 });

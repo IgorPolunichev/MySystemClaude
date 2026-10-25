@@ -199,9 +199,10 @@ async function pull(forceRefs: boolean): Promise<void> {
 
 /** Синхронизировать сейчас (по кнопке, при появлении сети, при запуске и по таймеру). */
 export function syncNow(forceRefs = false): Promise<void> {
+  // Без пропуска (до входа или при входе по ПИН) синхронизировать нечего; флаг «идёт» не ставим.
+  if (!getAccessToken()) return Promise.resolve();
   if (running) return running;
   running = (async () => {
-    if (!getAccessToken()) return;
     network.setSyncing(true);
     try {
       if (await push()) {

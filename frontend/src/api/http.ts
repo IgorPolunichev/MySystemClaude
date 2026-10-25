@@ -46,8 +46,11 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
   const headers = authHeaders(options.headers);
   headers.set('Accept', 'application/json, application/problem+json');
   let response: Response;
+  // Если связь недавно пропадала — не ждём долго: через 4 с переходим на локальные данные.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), offline.isMarkedOffline() ? 4000 : 30000);
   try {
-    response = await fetch(url, { ...options, headers });
+    response = await fetch(url, { ...options, headers, signal: options.signal ?? controller.signal });
   } catch (e) {
     if (offline.canHandleLocally(method, target.pathname)) {
       offline.markOffline();
@@ -57,6 +60,8 @@ export async function apiFetch<T>(url: string, options: RequestInit = {}): Promi
       title: 'Нет связи с сервером',
       detail: e instanceof Error ? e.message : undefined,
     });
+  } finally {
+    clearTimeout(timeout);
   }
   if ([502, 503, 504].includes(response.status) && offline.canHandleLocally(method, target.pathname)) {
     offline.markOffline();

@@ -3,6 +3,7 @@ import type { ActDetail } from '../api/generated/acts/model';
 import { db } from './db';
 import { actIdOf, isQueueable, LocalNotFound, localGet, localMutate, OfflineUnavailable } from './localApi';
 import { network } from './network';
+import { getAccessToken } from '../app/auth/tokenStore';
 import { refreshQueueState } from './sync';
 
 /** Связка apiFetch с локальным слоем. */
@@ -15,7 +16,9 @@ export function canHandleLocally(method: string, path: string): boolean {
 
 export async function mustHandleLocally(method: string, path: string, body: unknown): Promise<boolean> {
   if (!canHandleLocally(method, path)) return false;
-  if (!network.get().online || (typeof navigator !== 'undefined' && !navigator.onLine)) return true;
+  // Без пропуска (вход по ПИН без связи) — только локально. Иначе сначала пробуем сервер: в очередь — лишь при сбое.
+  if (!getAccessToken()) return true;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
   if (method === 'GET') return false;
   const actId = actIdOf(path, body);
   if (!actId) return false;
@@ -40,6 +43,10 @@ export async function handleLocally(method: string, target: URL, body: unknown):
     if (e instanceof OfflineUnavailable) throw new ApiError(503, { title: 'Нет связи', detail: e.message });
     throw new ApiError(422, { title: 'Ошибка', detail: e instanceof Error ? e.message : String(e) });
   }
+}
+
+export function isMarkedOffline(): boolean {
+  return !network.get().online;
 }
 
 export function markOffline(): void {
