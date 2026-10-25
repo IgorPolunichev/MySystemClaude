@@ -210,7 +210,8 @@ public class ActService {
         UUID previousSiteId = act.site() == null ? null : act.site().id();
         if (c.siteId() != null && !c.siteId().equals(currentSiteId)) {
             site = siteSnapshot(c.siteId(), organization, !c.siteId().equals(previousSiteId));
-        } else if (c.siteId() == null && !equipmentChanged) {
+        } else if (c.siteId() == null && !equipmentChanged && act.status() == ActStatus.DRAFT) {
+            // Убрать площадку можно только у черновика; у открытого акта пустое значение — «оставить как есть».
             site = null;
         }
         // После открытия номер акта привязан к площадке (её код входит в номер) — площадку менять нельзя.

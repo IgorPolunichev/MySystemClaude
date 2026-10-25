@@ -518,6 +518,7 @@ class ActScenariosIT extends PostgresIntegrationTest {
         assertThat(act.permissions().canShare()).isTrue();
 
         String next = user();
+        directory.register(next);
         login(next);
         UUID actId = act.id();
         ActDetail seen = acts.get(actId);
@@ -556,9 +557,11 @@ class ActScenariosIT extends PostgresIntegrationTest {
         assertThatThrownBy(() -> acts.updateHeader(opened.id(), new ActHeaderCommand(opened.version(),
                 opened.equipment().id(), new BigDecimal("1250.5"), null, null, null, null, "ТО", null, null, null, null, null,
                 null, null, null, FakeDirectory.SITE_B))).isInstanceOf(BusinessRuleException.class).hasMessageContaining("целое");
+        // пустая площадка у открытого акта — «оставить как есть»
         ActDetail ok = acts.updateHeader(opened.id(), new ActHeaderCommand(opened.version(), opened.equipment().id(),
                 new BigDecimal("1250.0"), null, null, null, null, "ТО", null, null, null, null, null, null, null, null,
-                FakeDirectory.SITE_B));
+                null));
         assertThat(ok.meterHours()).isEqualByComparingTo("1250");
+        assertThat(ok.site().name()).isEqualTo("Площадка Б");
     }
 }
