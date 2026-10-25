@@ -4,6 +4,8 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
+  Popover,
   DatePicker,
   Empty,
   Progress,
@@ -16,7 +18,7 @@ import {
   theme,
   Typography,
 } from 'antd';
-import { CalendarOutlined, FileExcelOutlined, SyncOutlined } from '@ant-design/icons';
+import { CalendarOutlined, EyeOutlined, FileExcelOutlined, SyncOutlined } from '@ant-design/icons';
 import {
   Bar,
   BarChart,
@@ -43,6 +45,7 @@ import { errorText } from '../../shared/lib/apiErrors';
 import { useRoles } from '../../shared/lib/useRoles';
 import { OrganizationSelect, ServiceDepartmentSelect } from '../directory/lookups';
 import { levelColor, periodBounds, type PeriodKind } from './period';
+import { GAUGES_COLLAPSED, isDeviation, loadLayout, saveLayout, type DashboardLayout } from './layout';
 
 const num = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
 const hours = (v?: number | null) => (v == null ? '—' : `${num.format(v)} ч`);
@@ -134,6 +137,14 @@ function useChartColors() {
 export function DashboardPage() {
   const navigate = useNavigate();
   const colors = useChartColors();
+  const [layout, setLayoutState] = useState<DashboardLayout>(loadLayout);
+  const [showAllGauges, setShowAllGauges] = useState(false);
+  const setLayout = (patch: Partial<DashboardLayout>) =>
+    setLayoutState((l) => {
+      const next = { ...l, ...patch };
+      saveLayout(next);
+      return next;
+    });
   const { message } = App.useApp();
   const { isAdmin } = useRoles();
   const [kind, setKind] = useState<PeriodKind>('month');
@@ -160,7 +171,25 @@ export function DashboardPage() {
   // Список инженеров для фильтра — без фильтра по инженерам, чтобы не терять варианты.
   const all = ok(useGetDashboard({ from, to }).data);
   const scope = view?.scope ?? 'SELF';
-  const engineers = useMemo(() => view?.engineers ?? [], [view]);
+  const allEngineers = useMemo(() => view?.engineers ?? [], [view]);
+  const engineers = useMemo(
+    () =>
+      layout.onlyDeviations
+        ? allEngineers.filter((e) => isDeviation(e.percent, e.normHours, view?.thresholds.yellow ?? 90))
+        : allEngineers,
+    [allEngineers, layout.onlyDeviations, view],
+  );
+  const gaugeEngineers = useMemo(() => {
+    if (showAllGauges || engineers.length <= GAUGES_COLLAPSED) return engineers;
+    // Сначала самые отстающие и превысившие норму — их важнее увидеть при большом числе инженеров.
+    return [...engineers]
+      .sort(
+        (a, b) =>
+          Math.abs(100 - (a.normHours ? a.percent : 100)) - Math.abs(100 - (b.normHours ? b.percent : 100)),
+      )
+      .reverse()
+      .slice(0, GAUGES_COLLAPSED);
+  }, [engineers, showAllGauges]);
   const current = selected ?? (engineers.length === 1 ? engineers[0].engineerId : undefined);
   const series = ok(
     useGetSeries({ engineerId: current ?? '', from, to, granularity }, { query: { enabled: !!current } })
@@ -200,6 +229,44 @@ export function DashboardPage() {
           Продуктивные часы
         </Typography.Title>
         <Space wrap>
+          <Popover
+            trigger="click"
+            placement="bottomRight"
+            title="Что показывать"
+            content={
+              <Space direction="vertical">
+                <Checkbox
+                  checked={layout.departments}
+                  onChange={(e) => setLayout({ departments: e.target.checked })}
+                >
+                  Индикаторы отделов
+                </Checkbox>
+                <Checkbox
+                  checked={layout.engineers}
+                  onChange={(e) => setLayout({ engineers: e.target.checked })}
+                >
+                  Индикаторы инженеров
+                </Checkbox>
+                <Checkbox checked={layout.compare} onChange={(e) => setLayout({ compare: e.target.checked })}>
+                  График «Факт против нормы»
+                </Checkbox>
+                <Checkbox checked={layout.daily} onChange={(e) => setLayout({ daily: e.target.checked })}>
+                  Часы по дням
+                </Checkbox>
+                <Checkbox checked={layout.table} onChange={(e) => setLayout({ table: e.target.checked })}>
+                  Таблица
+                </Checkbox>
+                <Checkbox
+                  checked={layout.onlyDeviations}
+                  onChange={(e) => setLayout({ onlyDeviations: e.target.checked })}
+                >
+                  Только инженеры с отклонением от нормы
+                </Checkbox>
+              </Space>
+            }
+          >
+            <Button icon={<EyeOutlined />}>Вид</Button>
+          </Popover>
           <Button icon={<CalendarOutlined />} onClick={() => navigate('/dashboard/norms')}>
             Нормы и календарь
           </Button>
@@ -276,7 +343,7 @@ export function DashboardPage() {
         <Spin size="large" style={{ display: 'block', margin: '60px auto' }} />
       ) : (
         <Spin spinning={isFetching}>
-          {view.departments.length > 0 && scope !== 'SELF' && (
+          {layout.departments && view.departments.length > 0 && scope !== 'SELF' && (
             <>
               <Typography.Title level={5} className="section-title">
                 Отделы
@@ -299,32 +366,52 @@ export function DashboardPage() {
             </>
           )}
 
-          <Typography.Title level={5} className="section-title">
-            {scope === 'SELF' ? 'Мои показатели' : 'Инженеры'}
-          </Typography.Title>
-          {engineers.length === 0 ? (
-            <Empty description="Нет данных за период" />
-          ) : (
-            <div className="gauge-grid">
-              {engineers.map((e) => (
-                <Gauge
-                  key={e.engineerId}
-                  title={e.fullName}
-                  subtitle={scope !== 'SELF' ? e.departmentName : undefined}
-                  fact={e.factHours}
-                  norm={e.normHours}
-                  percent={e.percent}
-                  red={red}
-                  yellow={yellow}
-                  active={e.engineerId === current}
-                  onClick={() => setSelected(e.engineerId)}
+          {(layout.engineers || scope === 'SELF') && (
+            <>
+              <Typography.Title level={5} className="section-title">
+                {scope === 'SELF' ? 'Мои показатели' : 'Инженеры'}
+                {layout.onlyDeviations && scope !== 'SELF' && (
+                  <Tag style={{ marginLeft: 8 }}>
+                    только с отклонением: {engineers.length} из {allEngineers.length}
+                  </Tag>
+                )}
+              </Typography.Title>
+              {engineers.length === 0 ? (
+                <Empty
+                  description={layout.onlyDeviations ? 'Отклонений от нормы нет' : 'Нет данных за период'}
                 />
-              ))}
-            </div>
+              ) : (
+                <>
+                  <div className="gauge-grid">
+                    {gaugeEngineers.map((e) => (
+                      <Gauge
+                        key={e.engineerId}
+                        title={e.fullName}
+                        subtitle={scope !== 'SELF' ? e.departmentName : undefined}
+                        fact={e.factHours}
+                        norm={e.normHours}
+                        percent={e.percent}
+                        red={red}
+                        yellow={yellow}
+                        active={e.engineerId === current}
+                        onClick={() => setSelected(e.engineerId)}
+                      />
+                    ))}
+                  </div>
+                  {engineers.length > GAUGES_COLLAPSED && (
+                    <Button type="link" onClick={() => setShowAllGauges((v) => !v)}>
+                      {showAllGauges
+                        ? 'Показать только наиболее отклонившихся'
+                        : `Показать всех (${engineers.length}); сейчас — ${GAUGES_COLLAPSED} с наибольшим отклонением от нормы`}
+                    </Button>
+                  )}
+                </>
+              )}
+            </>
           )}
 
           <div className="chart-row">
-            {engineers.length > 1 && (
+            {layout.compare && engineers.length > 1 && (
               <Card size="small" title="Факт против нормы" className="chart-card">
                 <ResponsiveContainer width="100%" height={Math.max(220, engineers.length * 36)}>
                   <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
@@ -345,103 +432,107 @@ export function DashboardPage() {
                 </ResponsiveContainer>
               </Card>
             )}
-            <Card
-              size="small"
-              className="chart-card"
-              title={currentName ? `Часы: ${currentName}` : 'Часы по дням'}
-              extra={
-                <Segmented
-                  size="small"
-                  value={granularity}
-                  onChange={(v) => setGranularity(v as 'day' | 'week')}
-                  options={[
-                    { value: 'day', label: 'По дням' },
-                    { value: 'week', label: 'По неделям' },
-                  ]}
-                />
-              }
-            >
-              {!current ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="Выберите инженера на индикаторе выше"
-                />
-              ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <LineChart
-                    data={(series ?? []).map((p) => ({
-                      date: dayjs(p.start).format(granularity === 'week' ? '[с] DD.MM' : 'DD.MM'),
-                      Часы: p.hours,
-                    }))}
-                    margin={{ left: 0, right: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
-                    <XAxis dataKey="date" tick={{ ...colors.axis, fontSize: 11 }} stroke={colors.grid} />
-                    <YAxis tick={colors.axis} stroke={colors.grid} />
-                    <Tooltip
-                      formatter={(v: number) => hours(v)}
-                      {...colors.tooltip}
-                      cursor={{ stroke: colors.grid }}
-                    />
-                    <Line
-                      type="linear"
-                      dataKey="Часы"
-                      stroke={colors.line}
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: colors.line }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </Card>
+            {layout.daily && (
+              <Card
+                size="small"
+                className="chart-card"
+                title={currentName ? `Часы: ${currentName}` : 'Часы по дням'}
+                extra={
+                  <Segmented
+                    size="small"
+                    value={granularity}
+                    onChange={(v) => setGranularity(v as 'day' | 'week')}
+                    options={[
+                      { value: 'day', label: 'По дням' },
+                      { value: 'week', label: 'По неделям' },
+                    ]}
+                  />
+                }
+              >
+                {!current ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Выберите инженера на индикаторе выше"
+                  />
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart
+                      data={(series ?? []).map((p) => ({
+                        date: dayjs(p.start).format(granularity === 'week' ? '[с] DD.MM' : 'DD.MM'),
+                        Часы: p.hours,
+                      }))}
+                      margin={{ left: 0, right: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                      <XAxis dataKey="date" tick={{ ...colors.axis, fontSize: 11 }} stroke={colors.grid} />
+                      <YAxis tick={colors.axis} stroke={colors.grid} />
+                      <Tooltip
+                        formatter={(v: number) => hours(v)}
+                        {...colors.tooltip}
+                        cursor={{ stroke: colors.grid }}
+                      />
+                      <Line
+                        type="linear"
+                        dataKey="Часы"
+                        stroke={colors.line}
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: colors.line }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </Card>
+            )}
           </div>
 
-          <div className="page-panel" style={{ marginTop: 16 }}>
-            <Table<EngineerRow>
-              rowKey="engineerId"
-              dataSource={engineers}
-              pagination={false}
-              size="middle"
-              scroll={{ x: 760 }}
-              onRow={(e) => ({ onClick: () => openActs(e), style: { cursor: 'pointer' } })}
-              columns={[
-                {
-                  title: 'Инженер',
-                  dataIndex: 'fullName',
-                  sorter: (a, b) => a.fullName.localeCompare(b.fullName),
-                },
-                { title: 'Отдел', dataIndex: 'departmentName', responsive: ['md'] },
-                { title: 'Норма', key: 'norm', align: 'right', render: (_, e) => hours(e.normHours) },
-                {
-                  title: 'Факт',
-                  key: 'fact',
-                  align: 'right',
-                  sorter: (a, b) => a.factHours - b.factHours,
-                  render: (_, e) => <b>{hours(e.factHours)}</b>,
-                },
-                {
-                  title: '%',
-                  key: 'percent',
-                  align: 'right',
-                  sorter: (a, b) => a.percent - b.percent,
-                  render: (_, e) =>
-                    e.normHours ? (
-                      <span style={{ color: levelColor(e.percent, red, yellow), fontWeight: 600 }}>
-                        {e.percent}%
-                      </span>
-                    ) : (
-                      '—'
-                    ),
-                },
-                { title: 'Актов', dataIndex: 'acts', align: 'right' },
-                { title: 'Машин', dataIndex: 'machines', align: 'right' },
-              ]}
-            />
-            <Typography.Paragraph type="secondary" className="hint">
-              Нажмите на строку, чтобы открыть акты инженера за период. Учитываются открытые и закрытые акты;
-              время в пути не входит в продуктивные часы.
-            </Typography.Paragraph>
-          </div>
+          {layout.table && (
+            <div className="page-panel" style={{ marginTop: 16 }}>
+              <Table<EngineerRow>
+                rowKey="engineerId"
+                dataSource={engineers}
+                pagination={false}
+                size="middle"
+                scroll={{ x: 760 }}
+                onRow={(e) => ({ onClick: () => openActs(e), style: { cursor: 'pointer' } })}
+                columns={[
+                  {
+                    title: 'Инженер',
+                    dataIndex: 'fullName',
+                    sorter: (a, b) => a.fullName.localeCompare(b.fullName),
+                  },
+                  { title: 'Отдел', dataIndex: 'departmentName', responsive: ['md'] },
+                  { title: 'Норма', key: 'norm', align: 'right', render: (_, e) => hours(e.normHours) },
+                  {
+                    title: 'Факт',
+                    key: 'fact',
+                    align: 'right',
+                    sorter: (a, b) => a.factHours - b.factHours,
+                    render: (_, e) => <b>{hours(e.factHours)}</b>,
+                  },
+                  {
+                    title: '%',
+                    key: 'percent',
+                    align: 'right',
+                    sorter: (a, b) => a.percent - b.percent,
+                    render: (_, e) =>
+                      e.normHours ? (
+                        <span style={{ color: levelColor(e.percent, red, yellow), fontWeight: 600 }}>
+                          {e.percent}%
+                        </span>
+                      ) : (
+                        '—'
+                      ),
+                  },
+                  { title: 'Актов', dataIndex: 'acts', align: 'right' },
+                  { title: 'Машин', dataIndex: 'machines', align: 'right' },
+                ]}
+              />
+              <Typography.Paragraph type="secondary" className="hint">
+                Нажмите на строку, чтобы открыть акты инженера за период. Учитываются открытые и закрытые
+                акты; время в пути не входит в продуктивные часы.
+              </Typography.Paragraph>
+            </div>
+          )}
         </Spin>
       )}
     </section>
