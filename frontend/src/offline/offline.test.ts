@@ -391,4 +391,57 @@ describe('офлайн: акт без связи → очередь → синх
     await syncNow();
     expect((await db.outbox.toArray()).map((o) => o.status)).toEqual(['conflict']);
   });
+
+  it('шлюз отвечает 502 (запускается): операции остаются в очереди и уходят, когда он поднялся', async () => {
+    auth.token = 'token';
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    const id = '01990000-0000-7000-8000-0000000000f6';
+    await apiFetch('/api/v1/acts', { method: 'POST', body: JSON.stringify({ id, equipmentId: 'q1' }) });
+    // в прежней версии такая операция могла быть ошибочно отклонена — она должна вернуться в очередь
+    await db.outbox.add({
+      opId: 'old',
+      actId: id,
+      method: 'PUT',
+      url: `/api/v1/acts/${id}/time/e1/2026-10-05`,
+      body: { startTime: '08:00', endTime: '10:00' },
+      label: 'Время',
+      createdAt: Date.now(),
+      status: 'rejected',
+      error: 'Ошибка 502',
+      attempts: 1,
+    });
+    let up = false;
+    const server = {
+      id,
+      version: 1,
+      status: 'DRAFT',
+      number: null,
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (!up) return new Response('<html>502 Bad Gateway</html>', { status: 502 });
+        if (url.startsWith('/api/v1/acts/device'))
+          return new Response(JSON.stringify([server]), { status: 200 });
+        return new Response(JSON.stringify(url.includes('/time/') ? { act: server } : server), {
+          status: 200,
+        });
+      }),
+    );
+    const { syncNow } = await import('./sync');
+    network.setOnline(true);
+    await syncNow();
+    expect((await db.outbox.toArray()).map((o) => o.status)).toEqual(['pending', 'pending']);
+    expect(network.get().online).toBe(false);
+    up = true;
+    await syncNow();
+    expect(await db.outbox.count()).toBe(0);
+    expect(network.get().online).toBe(true);
+  });
 });

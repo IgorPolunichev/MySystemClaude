@@ -48,6 +48,14 @@ export async function refreshQueueState(): Promise<void> {
 
 /** Отправить очередь; возвращает false, если связь пропала. */
 async function push(): Promise<boolean> {
+  // Операции, ошибочно отклонённые из-за недоступности шлюза (502–504) в прежних версиях, возвращаем в очередь.
+  await db.outbox
+    .filter(
+      (o) =>
+        o.status === 'rejected' &&
+        /\b50[234]\b|Bad Gateway|Service Unavailable|Gateway Time-?out/i.test(o.error ?? ''),
+    )
+    .modify({ status: 'pending', error: undefined });
   const blocked = new Set((await db.outbox.where('status').equals('conflict').toArray()).map((o) => o.actId));
   const user = currentUsername();
   // Операции другого пользователя этого ПК ждут его входа: сервер проверяет права автора.
@@ -91,11 +99,16 @@ async function push(): Promise<boolean> {
       await db.outbox.delete(op.seq!);
       continue;
     }
+    // Шлюз недоступен или ещё запускается (502–504), таймаут — это «нет связи», а не отказ: повторим позже.
+    if (result.status === 0 || result.status >= 500) {
+      network.setOnline(false);
+      return false;
+    }
+    if (result.status === 401) return false;
     const message =
       (result.data as { detail?: string; title?: string })?.detail ??
       (result.data as { title?: string })?.title ??
       `Ошибка ${result.status}`;
-    if (result.status === 401) return false;
     const status: OutboxOp['status'] = result.status === 409 ? 'conflict' : 'rejected';
     await db.outbox.update(op.seq!, { status, error: message, attempts: op.attempts + 1 });
     if (status === 'conflict') blocked.add(op.actId);
@@ -137,6 +150,7 @@ async function pull(forceRefs: boolean): Promise<void> {
     ...(scope.siteIds.length ? [] : scope.organizationIds.map((id) => `organizationId=${id}`)),
   ].join('&');
   const r = await call('GET', `/api/v1/acts/device?${query}`);
+  if (r.status === 0 || r.status >= 500) throw new Error(`Сервер недоступен (ответ ${r.status})`);
   if (r.status !== 200) await setMeta('lastSyncError', `акты: ответ ${r.status}`);
   if (r.status === 200 && Array.isArray(r.data)) {
     const server = r.data as ActDetail[];
