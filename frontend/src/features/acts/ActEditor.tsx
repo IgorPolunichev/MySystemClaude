@@ -234,7 +234,21 @@ function ActActions({ act }: { act: ActDetail }) {
             icon={<UnlockOutlined />}
             disabled={!act.equipment}
             loading={open.isPending}
-            onClick={() => void run(() => open.mutateAsync({ id: act.id }), 'Акт открыт и получил номер')}
+            onClick={() =>
+              void (async () => {
+                try {
+                  const opened = ok(await open.mutateAsync({ id: act.id }));
+                  await refresh();
+                  if (opened?.status === 'DRAFT') {
+                    message.info('Нет связи: акт откроется и получит номер после синхронизации');
+                  } else {
+                    message.success('Акт открыт и получил номер');
+                  }
+                } catch (e) {
+                  message.error(errorText(e));
+                }
+              })()
+            }
           >
             Открыть акт
           </Button>

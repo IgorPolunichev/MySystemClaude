@@ -122,7 +122,7 @@ export function createLocalAct(
     permissions: {
       canEdit: true,
       canEditAnyTime: false,
-      canOpen: false,
+      canOpen: !!eq,
       canClose: false,
       canReopen: false,
       canCancel: false,
@@ -143,6 +143,7 @@ export function applyHeader(act: ActDetail, h: ActHeaderInput, refs: LocalRefs):
     next.site = eq?.siteId
       ? { id: eq.siteId, name: eq.siteName ?? 'Площадка', code: null, address: null }
       : null;
+    if (act.status === 'DRAFT') next.permissions = { ...act.permissions, canOpen: !!eq };
   }
   if (h.siteId && h.siteId !== next.site?.id && next.organization) {
     const site = (refs.sites[next.organization.id] ?? []).find((s) => s.id === h.siteId);

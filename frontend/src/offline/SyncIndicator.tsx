@@ -37,11 +37,14 @@ function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) 
           )}
         </Space>
         <Button
-          icon={<SyncOutlined spin={state.syncing} />}
-          disabled={!state.online || state.syncing}
+          type="primary"
+          icon={<SyncOutlined />}
+          loading={state.syncing}
           onClick={() => void syncNow(true)}
         >
-          Синхронизировать сейчас (и обновить справочники)
+          {state.online
+            ? 'Синхронизировать сейчас (и обновить справочники)'
+            : 'Проверить связь и синхронизировать'}
         </Button>
         {ops.length === 0 ? (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Все изменения отправлены" />

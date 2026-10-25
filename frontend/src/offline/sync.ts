@@ -227,8 +227,14 @@ export function startSync(): void {
   started = true;
   void navigator.storage?.persist?.();
   window.addEventListener('online', () => void syncNow());
+  // Со связью — раз в 2 минуты; без связи — каждые 15 секунд проверяем, не появилась ли она.
+  let last = Date.now();
   setInterval(() => {
-    if (navigator.onLine) void syncNow();
-  }, 120_000);
+    const interval = network.get().online ? 120_000 : 15_000;
+    if (navigator.onLine && Date.now() - last >= interval) {
+      last = Date.now();
+      void syncNow();
+    }
+  }, 5_000);
   void syncNow();
 }

@@ -8,7 +8,15 @@ vi.mock('../app/auth/tokenStore', () => ({ getAccessToken: () => 'token' }));
 
 const me = { id: 'e1', fullName: 'Петров И. С.', active: true } as Engineer;
 const equipment = [
-  { id: 'q1', organizationId: 'o1', organizationName: 'АО «Тест»', equipmentTypeName: 'Самосвал', brand: 'CAT', model: '777G', meterType: 'HOURS' } as Equipment,
+  {
+    id: 'q1',
+    organizationId: 'o1',
+    organizationName: 'АО «Тест»',
+    equipmentTypeName: 'Самосвал',
+    brand: 'CAT',
+    model: '777G',
+    meterType: 'HOURS',
+  } as Equipment,
 ];
 
 describe('офлайн: акт без связи → очередь → синхронизация', () => {
@@ -41,7 +49,14 @@ describe('офлайн: акт без связи → очередь → синх
 
     const timed = await apiFetch<{ data: { act: { totalHours: number } } }>(
       `/api/v1/acts/${created.data.id}/time/e1/2026-10-05`,
-      { method: 'PUT', body: JSON.stringify({ startTime: '10:00', endTime: '13:00', breaks: [{ startTime: '11:00', endTime: '12:00' }] }) },
+      {
+        method: 'PUT',
+        body: JSON.stringify({
+          startTime: '10:00',
+          endTime: '13:00',
+          breaks: [{ startTime: '11:00', endTime: '12:00' }],
+        }),
+      },
     );
     expect(timed.data.act.totalHours).toBe(2);
 
@@ -52,16 +67,35 @@ describe('офлайн: акт без связи → очередь → синх
 
     // Связь вернулась: сервер принимает операции и отвечает своими карточками акта.
     const calls: string[] = [];
-    const server = { id: created.data.id, version: 1, status: 'DRAFT', number: null, permissions: {}, timeEntries: [], engineers: [], parts: [], photos: [] };
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? 'GET'} ${url}`);
-      if (url.startsWith('/api/v1/acts/device')) return new Response(JSON.stringify([server]), { status: 200 });
-      return new Response(JSON.stringify(url.includes('/time/') ? { act: server } : server), { status: 200 });
-    }));
+    const server = {
+      id: created.data.id,
+      version: 1,
+      status: 'DRAFT',
+      number: null,
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        calls.push(`${init?.method ?? 'GET'} ${url}`);
+        if (url.startsWith('/api/v1/acts/device'))
+          return new Response(JSON.stringify([server]), { status: 200 });
+        return new Response(JSON.stringify(url.includes('/time/') ? { act: server } : server), {
+          status: 200,
+        });
+      }),
+    );
     network.setOnline(true);
     const { syncNow } = await import('./sync');
     await syncNow();
-    expect(calls.slice(0, 2)).toEqual(['POST /api/v1/acts', `PUT /api/v1/acts/${created.data.id}/time/e1/2026-10-05`]);
+    expect(calls.slice(0, 2)).toEqual([
+      'POST /api/v1/acts',
+      `PUT /api/v1/acts/${created.data.id}/time/e1/2026-10-05`,
+    ]);
     expect(await db.outbox.count()).toBe(0);
     expect((await db.acts.get(created.data.id))?.localOnly).toBe(false);
   });
@@ -75,18 +109,84 @@ describe('офлайн: акт без связи → очередь → синх
     });
     await db.outbox.clear();
     await db.acts.update(created.data.id, { localOnly: false });
-    await apiFetch(`/api/v1/acts/${created.data.id}`, { method: 'PUT', body: JSON.stringify({ version: 3, equipmentId: 'q1', shortDescription: 'ТО' }) });
-    await apiFetch(`/api/v1/acts/${created.data.id}/time/e1/2026-10-06`, { method: 'PUT', body: JSON.stringify({ startTime: '08:00', endTime: '12:00' }) });
+    await apiFetch(`/api/v1/acts/${created.data.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ version: 3, equipmentId: 'q1', shortDescription: 'ТО' }),
+    });
+    await apiFetch(`/api/v1/acts/${created.data.id}/time/e1/2026-10-06`, {
+      method: 'PUT',
+      body: JSON.stringify({ startTime: '08:00', endTime: '12:00' }),
+    });
 
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
-      if (url.startsWith('/api/v1/acts/device')) return new Response('[]', { status: 200 });
-      return new Response(JSON.stringify({ title: 'Конфликт', detail: 'Акт изменён другим пользователем' }), { status: 409 });
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.startsWith('/api/v1/acts/device')) return new Response('[]', { status: 200 });
+        return new Response(
+          JSON.stringify({ title: 'Конфликт', detail: 'Акт изменён другим пользователем' }),
+          { status: 409 },
+        );
+      }),
+    );
     network.setOnline(true);
     const { syncNow } = await import('./sync');
     await syncNow();
     const ops = await db.outbox.orderBy('seq').toArray();
     expect(ops.map((o) => o.status)).toEqual(['conflict', 'pending']);
     expect(network.get().problems).toBe(1);
+  });
+
+  it('«Открыть акт» без связи: номер выдаёт сервер после синхронизации', async () => {
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    const id = '01990000-0000-7000-8000-0000000000c3';
+    const created = await apiFetch<{ data: { permissions: { canOpen: boolean } } }>('/api/v1/acts', {
+      method: 'POST',
+      body: JSON.stringify({ id, equipmentId: 'q1' }),
+    });
+    expect(created.data.permissions.canOpen).toBe(true);
+    const opened = await apiFetch<{ data: { status: string } }>(`/api/v1/acts/${id}/open`, {
+      method: 'POST',
+    });
+    expect(opened.data.status).toBe('DRAFT');
+    expect((await db.acts.get(id))?.openAfterSync).toBe(true);
+
+    const numbers: string[] = [];
+    window.addEventListener('acts:numbered', (e) =>
+      numbers.push((e as CustomEvent<{ number: string }>).detail.number),
+    );
+    const draft = {
+      id,
+      version: 1,
+      status: 'DRAFT',
+      number: null,
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.startsWith('/api/v1/acts/device')) {
+          return new Response(JSON.stringify([{ ...draft, status: 'OPEN', number: 'АВР-2026-000123' }]), {
+            status: 200,
+          });
+        }
+        if (url.endsWith('/open') && init?.method === 'POST') {
+          return new Response(JSON.stringify({ ...draft, status: 'OPEN', number: 'АВР-2026-000123' }), {
+            status: 200,
+          });
+        }
+        return new Response(JSON.stringify(draft), { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow();
+    expect(numbers).toEqual(['АВР-2026-000123']);
+    expect((await db.acts.get(id))?.detail.status).toBe('OPEN');
+    expect(await db.outbox.count()).toBe(0);
   });
 });
