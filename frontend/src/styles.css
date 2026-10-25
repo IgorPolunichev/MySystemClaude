@@ -678,3 +678,49 @@ body {
   border-bottom: 1px dashed var(--line);
   text-transform: capitalize;
 }
+
+/* ---------- Почта (этап 8) ---------- */
+.selection-bar {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border: 1px solid var(--amber);
+  border-radius: 4px;
+  background: var(--surface);
+}
+
+.mail-editor {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.mail-editor-toolbar {
+  display: flex;
+  width: 100%;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mail-editor-body {
+  min-height: 220px;
+  max-height: 50vh;
+  overflow: auto;
+  padding: 10px 12px;
+  outline: none;
+}
+
+.mail-editor-body table {
+  border-collapse: collapse;
+}
+
+.mail-editor-body td,
+.mail-editor-body th {
+  border: 1px solid var(--line);
+  padding: 4px 6px;
+}

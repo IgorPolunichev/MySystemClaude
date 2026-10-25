@@ -72,6 +72,13 @@ public class ContactService {
         return contacts.groups();
     }
 
+    /** Адреса активных участников группы — выбор группы в письме добавляет их всех. */
+    @Transactional(readOnly = true)
+    public List<String> emails(ContactDirectory.Group group) {
+        return group.memberIds().stream().map(contacts::find).flatMap(java.util.Optional::stream)
+                .filter(Contact::active).map(Contact::email).toList();
+    }
+
     @PreAuthorize("hasAnyRole('ADMIN', 'DEPARTMENT_HEAD')")
     @Transactional
     public ContactDirectory.Group saveGroup(UUID id, String name, List<UUID> memberIds) {

@@ -21,6 +21,7 @@ import {
   CheckCircleOutlined,
   CopyOutlined,
   FileExcelOutlined,
+  MailOutlined,
   DeleteOutlined,
   HistoryOutlined,
   MoreOutlined,
@@ -50,6 +51,8 @@ import { HeaderForm } from './HeaderForm';
 import { PartsSection } from './PartsSection';
 import { PhotosSection } from './PhotosSection';
 import { AttachmentsSection } from './AttachmentsSection';
+import { MailComposer } from '../mail/MailComposer';
+import { JournalPage } from '../mail/JournalPage';
 import { Timesheet } from './Timesheet';
 
 const dateTime = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
@@ -136,6 +139,8 @@ function ActActions({ act }: { act: ActDetail }) {
   const [dialog, setDialog] = useState<'cancel' | 'reopen' | null>(null);
   const [history, setHistory] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [composer, setComposer] = useState(false);
+  const [mails, setMails] = useState(false);
   const p = act.permissions;
 
   const download = async () => {
@@ -166,6 +171,7 @@ function ActActions({ act }: { act: ActDetail }) {
 
   const menu = [
     { key: 'copy', icon: <CopyOutlined />, label: 'Создать на основе' },
+    { key: 'mails', icon: <MailOutlined />, label: 'Письма по акту' },
     ...(p.canCancel ? [{ key: 'cancel', icon: <StopOutlined />, label: 'Аннулировать', danger: true }] : []),
     ...(p.canDelete
       ? [
@@ -180,7 +186,9 @@ function ActActions({ act }: { act: ActDetail }) {
   ];
 
   const onMenu = (key: string) => {
-    if (key === 'copy') {
+    if (key === 'mails') {
+      setMails(true);
+    } else if (key === 'copy') {
       void (async () => {
         try {
           const created = ok(await copy.mutateAsync({ id: act.id }))!;
@@ -258,6 +266,11 @@ function ActActions({ act }: { act: ActDetail }) {
           Вернуть в работу
         </Button>
       )}
+      {act.status !== 'DRAFT' && act.status !== 'CANCELLED' && (
+        <Button icon={<MailOutlined />} onClick={() => setComposer(true)}>
+          Отправить письмом
+        </Button>
+      )}
       <Button icon={<FileExcelOutlined />} loading={downloading} onClick={() => void download()}>
         Скачать Excel
       </Button>
@@ -290,6 +303,16 @@ function ActActions({ act }: { act: ActDetail }) {
         onClose={() => setDialog(null)}
       />
       <HistoryDrawer actId={act.id} open={history} onClose={() => setHistory(false)} />
+      <MailComposer actIds={[act.id]} open={composer} onClose={() => setComposer(false)} />
+      <Drawer
+        open={mails}
+        onClose={() => setMails(false)}
+        title="Письма по акту"
+        width="min(900px, 100vw)"
+        destroyOnHidden
+      >
+        <JournalPage actId={act.id} />
+      </Drawer>
     </Space>
   );
 }
@@ -331,6 +354,11 @@ export function ActEditor() {
             <Typography.Title level={2} className="page-title" style={{ margin: 0 }}>
               <span className="act-number">{act.number ?? 'Черновик'}</span>
             </Typography.Title>
+            {act.lastSentAt && (
+              <Tag color="blue" className="status-tag">
+                отправлен {new Date(act.lastSentAt).toLocaleDateString('ru-RU')}
+              </Tag>
+            )}
             <Tag color={status.color} className="status-tag">
               {status.label}
             </Tag>

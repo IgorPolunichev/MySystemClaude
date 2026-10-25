@@ -71,4 +71,6 @@ export interface ActDetail {
   executor?: ActExecutor | null;
   site?: ActSite | null;
   attachments: ActAttachment[];
+  /** @nullable */
+  lastSentAt?: string | null;
 }

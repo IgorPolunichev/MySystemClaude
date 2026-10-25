@@ -22,6 +22,7 @@ import {
   FilterOutlined,
   PlusOutlined,
   SaveOutlined,
+  MailOutlined,
   StarOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -46,6 +47,7 @@ import {
   type RegistryFilters,
   type SavedFilter,
 } from './savedFilters';
+import { MailComposer } from '../mail/MailComposer';
 
 /** Создание акта: сразу выбрать технику (можно пропустить и выбрать позже). */
 function NewActDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -117,6 +119,8 @@ export function ActsRegistry() {
   const [newOpen, setNewOpen] = useState(false);
   const [saved, setSaved] = useState<SavedFilter[]>(loadSavedFilters);
   const [exporting, setExporting] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [composer, setComposer] = useState(false);
   const [shortQuery, setShortQuery] = useState('');
   const shortOptions =
     ok(useListShortDescriptions({ q: shortQuery || undefined }, { query: { enabled: more } }).data) ?? [];
@@ -361,10 +365,30 @@ export function ActsRegistry() {
         </div>
       )}
 
+      {selected.length > 0 && (
+        <div className="selection-bar">
+          <span>
+            Выбрано актов: <b>{selected.length}</b>
+          </span>
+          <Button type="primary" icon={<MailOutlined />} onClick={() => setComposer(true)}>
+            Сформировать письмо
+          </Button>
+          <Button type="link" onClick={() => setSelected([])}>
+            Снять выбор
+          </Button>
+        </div>
+      )}
+
       <div className="page-panel">
         <Table<ActSummary>
           rowKey="id"
           loading={isFetching}
+          rowSelection={{
+            selectedRowKeys: selected,
+            preserveSelectedRowKeys: true,
+            onChange: (keys) => setSelected(keys.map(String)),
+            getCheckboxProps: (a) => ({ disabled: a.status === 'DRAFT' || a.status === 'CANCELLED' }),
+          }}
           dataSource={result?.items}
           scroll={{ x: 1100 }}
           onRow={(a) => ({ onClick: () => navigate(`/acts/${a.id}`), style: { cursor: 'pointer' } })}
@@ -394,6 +418,14 @@ export function ActsRegistry() {
                   <span className="cell-codes cell-strong">{a.number ?? 'без номера'}</span>
                   <Space size={4} wrap>
                     <Tag color={STATUS[a.status].color}>{STATUS[a.status].label}</Tag>
+                    {a.lastSentAt && (
+                      <Tag
+                        color="blue"
+                        title={`Отправлен письмом ${new Date(a.lastSentAt).toLocaleString('ru-RU')}`}
+                      >
+                        отправлен
+                      </Tag>
+                    )}
                     {a.hasSignedScan && (
                       <Tag color="green" title="Скан подписанного акта приложен">
                         скан
@@ -449,6 +481,14 @@ export function ActsRegistry() {
         />
       </div>
       <NewActDialog open={newOpen} onClose={() => setNewOpen(false)} />
+      <MailComposer
+        actIds={selected}
+        open={composer}
+        onClose={() => {
+          setComposer(false);
+          setSelected([]);
+        }}
+      />
     </section>
   );
 }

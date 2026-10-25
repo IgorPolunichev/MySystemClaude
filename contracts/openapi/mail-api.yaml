@@ -1,0 +1,808 @@
+openapi: 3.1.0
+info:
+  title: Сервисные акты — письма (mail-service)
+  version: 1.0.0
+  description: Письма по актам, адресная книга, шаблоны FreeMarker, журнал отправок.
+servers:
+- url: /
+security:
+- bearerAuth: []
+paths:
+  /api/v1/mail/preview:
+    post:
+      operationId: previewMail
+      tags:
+      - mail
+      summary: Предпросмотр письма по актам
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MailPreviewInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MailPreview'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/mail/messages:
+    post:
+      operationId: sendMail
+      tags:
+      - mail
+      summary: Отправить (SMTP, в очередь) или сформировать .eml
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    get:
+      operationId: listMessages
+      tags:
+      - mail
+      summary: Журнал отправок
+      parameters:
+      - name: actId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePage'
+  /api/v1/mail/messages/{id}/eml:
+    get:
+      operationId: getMessageEml
+      tags:
+      - mail
+      summary: Письмо .eml для Outlook
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Файл .eml
+          content:
+            message/rfc822:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/contacts:
+    get:
+      operationId: listContacts
+      tags:
+      - contacts
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: includeInactive
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Contact'
+    post:
+      operationId: createContact
+      tags:
+      - contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/contacts/{id}:
+    put:
+      operationId: updateContact
+      tags:
+      - contacts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/contacts/import:
+    post:
+      operationId: importContacts
+      tags:
+      - contacts
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportResult'
+  /api/v1/contacts/export:
+    get:
+      operationId: exportContacts
+      tags:
+      - contacts
+      responses:
+        '200':
+          description: CSV
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+  /api/v1/contact-groups:
+    get:
+      operationId: listContactGroups
+      tags:
+      - contacts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContactGroup'
+    post:
+      operationId: createContactGroup
+      tags:
+      - contacts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactGroupInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactGroup'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/contact-groups/{id}:
+    put:
+      operationId: updateContactGroup
+      tags:
+      - contacts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactGroupInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContactGroup'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteContactGroup
+      tags:
+      - contacts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/email-templates:
+    get:
+      operationId: listEmailTemplates
+      tags:
+      - templates
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EmailTemplate'
+    post:
+      operationId: createEmailTemplate
+      tags:
+      - templates
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateInput'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /api/v1/email-templates/{id}:
+    put:
+      operationId: updateEmailTemplate
+      tags:
+      - templates
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailTemplateInput'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailTemplate'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+    delete:
+      operationId: deleteEmailTemplate
+      tags:
+      - templates
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: Удалено
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: Номер страницы с 0
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+      description: Размер страницы
+  responses:
+    BadRequest:
+      description: Неверный запрос
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Forbidden:
+      description: Недостаточно прав
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: Не найдено
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: 'Конфликт: запись изменена другим пользователем, дубликат или запись используется'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: Данные не прошли проверку
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Contact:
+      type: object
+      required:
+      - id
+      - email
+      - defaultForOrganization
+      - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type:
+          - string
+          - 'null'
+        email:
+          type: string
+        organizationId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        organizationName:
+          type:
+          - string
+          - 'null'
+        position:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        defaultForOrganization:
+          type: boolean
+        active:
+          type: boolean
+    ContactInput:
+      type: object
+      required:
+      - email
+      properties:
+        fullName:
+          type:
+          - string
+          - 'null'
+        email:
+          type: string
+        organizationId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        organizationName:
+          type:
+          - string
+          - 'null'
+        position:
+          type:
+          - string
+          - 'null'
+        notes:
+          type:
+          - string
+          - 'null'
+        defaultForOrganization:
+          type:
+          - boolean
+          - 'null'
+        active:
+          type:
+          - boolean
+          - 'null'
+    ContactGroup:
+      type: object
+      required:
+      - id
+      - name
+      - memberIds
+      - emails
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        memberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        emails:
+          type: array
+          items:
+            type: string
+          description: Адреса активных участников
+    ContactGroupInput:
+      type: object
+      required:
+      - name
+      properties:
+        name:
+          type: string
+        memberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    EmailTemplate:
+      type: object
+      required:
+      - id
+      - name
+      - subject
+      - body
+      - isDefault
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        isDefault:
+          type: boolean
+    EmailTemplateInput:
+      type: object
+      required:
+      - name
+      - subject
+      - body
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        body:
+          type: string
+        isDefault:
+          type: boolean
+    MailPreviewInput:
+      type: object
+      required:
+      - actIds
+      properties:
+        actIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 50
+        templateId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    MailPreview:
+      type: object
+      required:
+      - subject
+      - body
+      - templateId
+      - defaultTo
+      - attachmentNames
+      - warnings
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        templateId:
+          type: string
+          format: uuid
+        defaultTo:
+          type: array
+          items:
+            type: string
+        attachmentNames:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+    SendMode:
+      type: string
+      enum:
+      - SMTP
+      - EML
+    MessageStatus:
+      type: string
+      enum:
+      - QUEUED
+      - SENT
+      - FAILED
+      - EML
+    SendInput:
+      type: object
+      required:
+      - actIds
+      properties:
+        actIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        templateId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        to:
+          type: array
+          items:
+            type: string
+        cc:
+          type: array
+          items:
+            type: string
+        bcc:
+          type: array
+          items:
+            type: string
+        subject:
+          type:
+          - string
+          - 'null'
+        body:
+          type:
+          - string
+          - 'null'
+        mode:
+          $ref: '#/components/schemas/SendMode'
+        zip:
+          type: boolean
+    Message:
+      type: object
+      required:
+      - id
+      - subject
+      - to
+      - cc
+      - actIds
+      - actNumbers
+      - mode
+      - status
+      - attempts
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        to:
+          type: array
+          items:
+            type: string
+        cc:
+          type: array
+          items:
+            type: string
+        actIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        actNumbers:
+          type: array
+          items:
+            type: string
+        mode:
+          $ref: '#/components/schemas/SendMode'
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        attempts:
+          type: integer
+        error:
+          type:
+          - string
+          - 'null'
+        createdAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        createdBy:
+          type:
+          - string
+          - 'null'
+        sentAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+    MessagePage:
+      type: object
+      required:
+      - items
+      - page
+      - size
+      - totalElements
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+          format: int64
+    ImportResult:
+      type: object
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              message:
+                type: string
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Ошибки по полям формы

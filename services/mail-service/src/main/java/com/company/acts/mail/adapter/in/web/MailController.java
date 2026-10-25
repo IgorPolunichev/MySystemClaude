@@ -48,6 +48,9 @@ class MailController {
     record GroupRequest(String name, List<UUID> memberIds) {
     }
 
+    record GroupResponse(UUID id, String name, List<UUID> memberIds, List<String> emails) {
+    }
+
     record TemplateRequest(String name, String subject, String body, boolean isDefault) {
     }
 
@@ -125,19 +128,23 @@ class MailController {
     }
 
     @GetMapping("/api/v1/contact-groups")
-    List<ContactDirectory.Group> groups() {
-        return contacts.groups();
+    List<GroupResponse> groups() {
+        return contacts.groups().stream().map(this::group).toList();
     }
 
     @PostMapping("/api/v1/contact-groups")
     @ResponseStatus(HttpStatus.CREATED)
-    ContactDirectory.Group createGroup(@RequestBody GroupRequest r) {
-        return contacts.saveGroup(null, r.name(), r.memberIds());
+    GroupResponse createGroup(@RequestBody GroupRequest r) {
+        return group(contacts.saveGroup(null, r.name(), r.memberIds()));
     }
 
     @PutMapping("/api/v1/contact-groups/{id}")
-    ContactDirectory.Group updateGroup(@PathVariable UUID id, @RequestBody GroupRequest r) {
-        return contacts.saveGroup(id, r.name(), r.memberIds());
+    GroupResponse updateGroup(@PathVariable UUID id, @RequestBody GroupRequest r) {
+        return group(contacts.saveGroup(id, r.name(), r.memberIds()));
+    }
+
+    private GroupResponse group(ContactDirectory.Group g) {
+        return new GroupResponse(g.id(), g.name(), g.memberIds(), contacts.emails(g));
     }
 
     @DeleteMapping("/api/v1/contact-groups/{id}")

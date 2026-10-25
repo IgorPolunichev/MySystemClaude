@@ -41,4 +41,6 @@ export interface ActSummary {
      * @nullable
      */
   highlight?: string | null;
+  /** @nullable */
+  lastSentAt?: string | null;
 }

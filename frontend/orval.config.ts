@@ -21,4 +21,5 @@ export default defineConfig({
   acts: { input: '../contracts/openapi/acts-api.yaml', output: output('acts') },
   media: { input: '../contracts/openapi/media-api.yaml', output: output('media') },
   analytics: { input: '../contracts/openapi/analytics-api.yaml', output: output('analytics') },
+  mail: { input: '../contracts/openapi/mail-api.yaml', output: output('mail') },
 });

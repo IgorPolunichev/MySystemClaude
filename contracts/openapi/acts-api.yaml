@@ -1117,6 +1117,11 @@ components:
           - string
           - 'null'
           description: Фрагмент текста с совпадениями, выделенными [[ ]] (только при поиске)
+        lastSentAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
     ActSummaryPage:
       type: object
       required:
@@ -1501,6 +1506,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ActAttachment'
+        lastSentAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
     ActCreate:
       type: object
       properties:
