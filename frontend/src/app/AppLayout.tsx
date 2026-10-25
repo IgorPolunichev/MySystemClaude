@@ -1,7 +1,10 @@
 import { SyncIndicator } from '../offline/SyncIndicator';
 import { db } from '../offline/db';
+import { endOfflineSession, useOfflineSession } from '../offline/offlineAuth';
+import { useNetwork } from '../offline/network';
+import { useRoles } from '../shared/lib/useRoles';
 import { currentUsername } from '../offline/user';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { App, Button, Drawer, Grid, Layout, Menu, Space, Tag, Tooltip, Typography } from 'antd';
 
@@ -9,7 +12,6 @@ import { LogoutOutlined, MenuOutlined, MoonOutlined, SunOutlined } from '@ant-de
 import { useAuth } from 'react-oidc-context';
 import { useTranslation } from 'react-i18next';
 import { modules, visibleModules } from './moduleRegistry';
-import { rolesFromAccessToken } from './auth/roles';
 import type { ThemeMode } from './theme';
 
 interface Props {
@@ -29,6 +31,8 @@ function Nameplate() {
 
 export function AppLayout({ themeMode, onToggleTheme }: Props) {
   const auth = useAuth();
+  const offline = useOfflineSession();
+  const net = useNetwork();
   const { modal } = App.useApp();
   /**
    * Данные принадлежат ПК (решение 19.11): при выходе справочники и акты остаются. Неотправленные изменения
@@ -40,7 +44,7 @@ export function AppLayout({ themeMode, onToggleTheme }: Props) {
       .filter((o) => !o.user || o.user === user)
       .count()
       .catch(() => 0);
-    const leave = () => auth.signoutRedirect();
+    const leave = () => (offline ? endOfflineSession() : auth.signoutRedirect());
     if (pending === 0) return leave();
     modal.confirm({
       title: 'Есть неотправленные изменения',
@@ -56,7 +60,7 @@ export function AppLayout({ themeMode, onToggleTheme }: Props) {
   const isMobile = !screens.lg;
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const roles = useMemo(() => rolesFromAccessToken(auth.user?.access_token), [auth.user]);
+  const { roles } = useRoles();
   const items = visibleModules(modules, roles).map((m) => ({
     key: m.path,
     icon: m.icon,
@@ -65,7 +69,9 @@ export function AppLayout({ themeMode, onToggleTheme }: Props) {
   const selected = location.pathname.split('/')[1] || 'acts';
   const profile = auth.user?.profile;
   const fullName =
-    [profile?.family_name, profile?.given_name].filter(Boolean).join(' ') || profile?.preferred_username;
+    [profile?.family_name, profile?.given_name].filter(Boolean).join(' ') ||
+    profile?.preferred_username ||
+    offline?.fullName;
 
   const menu = (
     <Menu
@@ -121,6 +127,23 @@ export function AppLayout({ themeMode, onToggleTheme }: Props) {
                 onClick={onToggleTheme}
               />
             </Tooltip>
+            {offline && (
+              <Tooltip title="Вы вошли по ПИН-коду без связи с сервером. Изменения уйдут на сервер после входа со связью.">
+                <Tag color="orange">вход без связи</Tag>
+              </Tooltip>
+            )}
+            {offline && net.online && (
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => {
+                  endOfflineSession();
+                  void auth.signinRedirect();
+                }}
+              >
+                Войти со связью
+              </Button>
+            )}
             <SyncIndicator />
             <Button icon={<LogoutOutlined />} onClick={() => void logout()}>
               {!isMobile && t('app.signOut')}

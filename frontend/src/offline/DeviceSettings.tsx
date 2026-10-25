@@ -3,6 +3,9 @@ import { App, Button, Form, Modal, Select, Typography } from 'antd';
 import type { Organization, Site } from '../api/generated/directory/model';
 import { db, getDeviceScope, getRef, setMeta, type DeviceScope } from './db';
 import { checkStorage, syncNow } from './sync';
+import { PinSetup } from './PinSetup';
+import { currentUsername } from './user';
+import { getAccessToken } from '../app/auth/tokenStore';
 
 /**
  * «Настройки этого ПК» (решение 19.11 SPEC.md): заказчики и площадки, акты которых хранятся на этом ПК для
@@ -15,6 +18,7 @@ export function DeviceSettings({ open, onClose }: { open: boolean; onClose: () =
   const [sites, setSites] = useState<Record<string, Site[]>>({});
   const [storage, setStorage] = useState<{ usedMb: number; quotaMb: number; low: boolean }>();
   const [counts, setCounts] = useState({ acts: 0, equipment: 0 });
+  const [pin, setPin] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -121,10 +125,18 @@ export function DeviceSettings({ open, onClose }: { open: boolean; onClose: () =
         <Typography.Text type="danger">Место для данных приложения заканчивается.</Typography.Text>
       )}
       <div>
+        {getAccessToken() && currentUsername() && (
+          <Button type="link" style={{ padding: 0, marginRight: 16 }} onClick={() => setPin(true)}>
+            Задать или сменить мой ПИН-код
+          </Button>
+        )}
         <Button danger type="link" style={{ padding: 0 }} onClick={wipe}>
           Очистить данные на этом ПК
         </Button>
       </div>
+      {pin && currentUsername() && (
+        <PinSetup username={currentUsername()!} force onClose={() => setPin(false)} />
+      )}
     </Modal>
   );
 }

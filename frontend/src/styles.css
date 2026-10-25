@@ -742,3 +742,7 @@ body {
     display: none;
   }
 }
+
+.offline-user.selected {
+  background: rgba(217, 154, 30, 0.12);
+}

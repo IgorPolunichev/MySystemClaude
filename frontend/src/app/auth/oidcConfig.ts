@@ -1,7 +1,7 @@
 import { WebStorageStateStore } from 'oidc-client-ts';
 import type { AuthProviderProps } from 'react-oidc-context';
 
-const authority = import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:8180/realms/acts';
+export const authority = import.meta.env.VITE_OIDC_AUTHORITY ?? 'http://localhost:8180/realms/acts';
 const clientId = import.meta.env.VITE_OIDC_CLIENT_ID ?? 'acts-frontend';
 
 export const oidcConfig: AuthProviderProps = {
