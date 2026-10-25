@@ -38,6 +38,7 @@ import type {
   ListActsParams,
   ListShortDescriptionsParams,
   NotFoundResponse,
+  SharingInput,
   UnprocessableResponse
 } from './model';
 
@@ -1560,3 +1561,110 @@ export function useGetActHistory<TData = Awaited<ReturnType<typeof getActHistory
 
 
 
+export type shareActResponse200 = {
+  data: ActDetail
+  status: 200
+}
+
+export type shareActResponse403 = {
+  data: ForbiddenResponse
+  status: 403
+}
+
+export type shareActResponseSuccess = (shareActResponse200) & {
+  headers: Headers;
+};
+export type shareActResponseError = (shareActResponse403) & {
+  headers: Headers;
+};
+
+export type shareActResponse = (shareActResponseSuccess | shareActResponseError)
+
+export const getShareActUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/acts/${id}/sharing`
+}
+
+/**
+ * @summary Доступно всем для редактирования (автор, руководитель, администратор)
+ */
+export const shareAct = async (id: string,
+    sharingInput: SharingInput, options?: Parameters<typeof apiFetch>[1]): Promise<shareActResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<shareActResponse>(getShareActUrl(id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sharingInput)
+  }
+);}
+
+
+
+
+
+export const getShareActMutationKey = () => ['shareAct'] as const;
+
+export const getShareActMutationOptions = <TError = ForbiddenResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareAct>>, TError,ShareActMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof shareAct>>, TError,ShareActMutationVariables, TContext> => {
+
+const mutationKey = getShareActMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof shareAct>>, ShareActMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  shareAct(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ShareActMutationResult = NonNullable<Awaited<ReturnType<typeof shareAct>>>
+    export type ShareActMutationBody = SharingInput
+    export type ShareActMutationError = ForbiddenResponse
+    export type ShareActMutationVariables = {id: string;data: SharingInput}
+
+    /**
+ * @summary Доступно всем для редактирования (автор, руководитель, администратор)
+ */
+export const useShareAct = <TError = ForbiddenResponse,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof shareAct>>, TError,ShareActMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof shareAct>>,
+        TError,
+        ShareActMutationVariables,
+        TContext
+      > => {
+      return useMutation(getShareActMutationOptions(options), queryClient);
+    }

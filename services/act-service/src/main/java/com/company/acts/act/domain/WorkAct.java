@@ -40,6 +40,7 @@ public final class WorkAct {
     private Instant closedAt;
     private String closedBy;
     private ExecutorSnapshot executor;
+    private boolean openForAll;
     private SiteSnapshot site;
 
     public WorkAct(UUID id, Long version, String number, ActStatus status, OrganizationSnapshot organization,
@@ -265,6 +266,24 @@ public final class WorkAct {
 
     public boolean hideRequisites() {
         return hideRequisites;
+    }
+
+    /** «Доступно всем для редактирования»: акт может продолжить и закрыть любой инженер. */
+    public boolean openForAll() {
+        return openForAll;
+    }
+
+    public void shareWithAll(boolean value) {
+        if (status == ActStatus.CLOSED || status == ActStatus.CANCELLED) {
+            throw new com.company.acts.common.core.BusinessRuleException("openForAll",
+                    "Доступ меняется только у черновика или открытого акта");
+        }
+        this.openForAll = value;
+    }
+
+    /** Восстановление флага из хранилища. */
+    public void restoreOpenForAll(boolean value) {
+        this.openForAll = value;
     }
 
     public boolean hideTravelTime() {

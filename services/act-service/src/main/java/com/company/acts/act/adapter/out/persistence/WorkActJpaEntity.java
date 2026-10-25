@@ -44,6 +44,9 @@ public class WorkActJpaEntity extends AuditedJpaEntity {
     @Column(name = "site_name")
     private String siteName;
 
+    @Column(name = "open_for_all")
+    private boolean openForAll;
+
     @Column(name = "site_code")
     private String siteCode;
 
@@ -577,5 +580,13 @@ public class WorkActJpaEntity extends AuditedJpaEntity {
 
     public int getSentCount() {
         return sentCount;
+    }
+
+    public boolean isOpenForAll() {
+        return openForAll;
+    }
+
+    public void setOpenForAll(boolean openForAll) {
+        this.openForAll = openForAll;
     }
 }

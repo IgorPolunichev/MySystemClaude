@@ -11,6 +11,7 @@ import {
   Result,
   Space,
   Spin,
+  Switch,
   Tag,
   Timeline,
   Tooltip,
@@ -34,6 +35,7 @@ import {
   getGetActQueryKey,
   useCancelAct,
   useCloseAct,
+  useShareAct,
   useCopyAct,
   useDeleteAct,
   useGetAct,
@@ -140,6 +142,7 @@ function ActActions({ act }: { act: ActDetail }) {
   const [dialog, setDialog] = useState<'cancel' | 'reopen' | null>(null);
   const [history, setHistory] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const share = useShareAct();
   const [composer, setComposer] = useState(false);
   const [mails, setMails] = useState(false);
   const p = act.permissions;
@@ -310,6 +313,27 @@ function ActActions({ act }: { act: ActDetail }) {
       <Button icon={<FileExcelOutlined />} loading={downloading} onClick={() => void download()}>
         Скачать Excel
       </Button>
+      {(p.canShare || act.openForAll) && (
+        <Tooltip title="Работу начал один инженер, продолжает и закрывает другой: при включении акт могут править и закрыть все инженеры. Администратор правит любой акт.">
+          <Space size={6} className="share-switch">
+            <Switch
+              size="small"
+              checked={act.openForAll}
+              disabled={!p.canShare}
+              loading={share.isPending}
+              onChange={(v) =>
+                void run(
+                  () => share.mutateAsync({ id: act.id, data: { openForAll: v } }),
+                  v
+                    ? 'Акт доступен для редактирования всем инженерам'
+                    : 'Доступ к акту снова только у его участников',
+                )
+              }
+            />
+            <span>Доступно всем</span>
+          </Space>
+        </Tooltip>
+      )}
       <Button icon={<HistoryOutlined />} onClick={() => setHistory(true)}>
         Журнал
       </Button>

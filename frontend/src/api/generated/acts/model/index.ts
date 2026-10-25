@@ -44,6 +44,7 @@ export * from './partSource';
 export * from './photoOrderInput';
 export * from './problem';
 export * from './problemErrors';
+export * from './sharingInput';
 export * from './sizeParameter';
 export * from './timeEntryInput';
 export * from './timeEntryResult';

@@ -7,7 +7,13 @@
   color-scheme: light;
 }
 
+.theme-root {
+  background: var(--canvas);
+  min-height: 100%;
+}
+
 .theme-root[data-theme='dark'] {
+  color: rgba(255, 255, 255, 0.85);
   --canvas: #12171c;
   --surface: #1a2129;
   --line: #2b3640;
@@ -745,4 +751,9 @@ body {
 
 .offline-user.selected {
   background: rgba(217, 154, 30, 0.12);
+}
+
+.share-switch {
+  padding: 0 4px;
+  white-space: nowrap;
 }

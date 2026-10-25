@@ -145,7 +145,9 @@ export function applyHeader(act: ActDetail, h: ActHeaderInput, refs: LocalRefs):
       : null;
     if (act.status === 'DRAFT') next.permissions = { ...act.permissions, canOpen: !!eq };
   }
-  if (h.siteId && h.siteId !== next.site?.id && next.organization) {
+  if (act.status !== 'DRAFT') {
+    next.site = act.site;
+  } else if (h.siteId && h.siteId !== next.site?.id && next.organization) {
     const site = (refs.sites[next.organization.id] ?? []).find((s) => s.id === h.siteId);
     next.site = {
       id: h.siteId,

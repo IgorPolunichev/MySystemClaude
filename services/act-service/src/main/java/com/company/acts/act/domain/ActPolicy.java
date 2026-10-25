@@ -25,7 +25,7 @@ public record ActPolicy(WorkAct act, List<Participant> participants, CurrentUser
     /** Править шапку, описания, запчасти, состав участников. */
     public boolean canEdit() {
         return switch (act.status()) {
-            case DRAFT, OPEN -> isAuthor() || isParticipant() || user.isSupervisor();
+            case DRAFT, OPEN -> isAuthor() || isParticipant() || user.isSupervisor() || sharedWithMe();
             case CLOSED -> user.isAdmin();
             case CANCELLED -> false;
         };
@@ -55,7 +55,17 @@ public record ActPolicy(WorkAct act, List<Participant> participants, CurrentUser
 
     /** Закрыть: автор, руководитель, администратор. */
     public boolean canClose() {
-        return act.status() == ActStatus.OPEN && (isAuthor() || user.isSupervisor());
+        return act.status() == ActStatus.OPEN && (isAuthor() || user.isSupervisor() || sharedWithMe());
+    }
+
+    /** Открыт ли акт для всех инженеров (работу начал один, заканчивает другой). */
+    public boolean sharedWithMe() {
+        return act.openForAll() && user.isEngineer();
+    }
+
+    /** Включать и выключать «Доступно всем»: автор, руководитель, администратор — у черновика и открытого акта. */
+    public boolean canShare() {
+        return (act.status() == ActStatus.DRAFT || act.status() == ActStatus.OPEN) && (isAuthor() || user.isSupervisor());
     }
 
     public boolean canReopen() {
@@ -76,7 +86,8 @@ public record ActPolicy(WorkAct act, List<Participant> participants, CurrentUser
      * (скан подписанного акта появляется как раз после закрытия). К аннулированному — нельзя.
      */
     public boolean canAttach() {
-        return act.status() != ActStatus.CANCELLED && (isAuthor() || isParticipant() || user.isSupervisor());
+        return act.status() != ActStatus.CANCELLED && (isAuthor() || isParticipant() || user.isSupervisor()
+                || sharedWithMe());
     }
 
     /** Удалить документ: тот, кто его загрузил, руководитель, администратор. */

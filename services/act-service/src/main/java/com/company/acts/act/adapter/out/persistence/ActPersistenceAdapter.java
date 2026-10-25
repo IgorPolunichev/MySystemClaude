@@ -124,6 +124,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         e.setSiteName(site == null ? null : site.name());
         e.setSiteAddress(site == null ? null : site.address());
         e.setSiteCode(site == null ? null : site.code());
+        e.setOpenForAll(a.openForAll());
         return toDomain(repository.saveAndFlush(e));
     }
 
@@ -344,7 +345,7 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         EquipmentSnapshot equipment = e.getEquipmentId() == null ? null : new EquipmentSnapshot(e.getEquipmentId(),
                 e.getEquipmentTypeName(), e.getEquipmentBrand(), e.getEquipmentModel(), e.getEquipmentSerial(),
                 e.getEquipmentGarage(), e.getEquipmentPlate(), e.getEquipmentMeterType());
-        return new WorkAct(e.getId(), e.getVersion(), e.getNumber(), e.getStatus(), organization, equipment,
+        WorkAct act = new WorkAct(e.getId(), e.getVersion(), e.getNumber(), e.getStatus(), organization, equipment,
                 e.getMeterHours(), e.getMeterKm(), e.getLocation(), e.getWorkStartOverride(), e.getWorkEndOverride(),
                 e.getShortDescription(), e.getDetailedDescription(), e.getRecommendations(), e.getCustomerRepName(),
                 e.getCustomerRepPosition(), e.isHideRequisites(), e.isHideTravelTime(), e.getAuthorEngineerId(),
@@ -354,6 +355,8 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
                         e.getExecutorPhone()),
                 e.getSiteId() == null ? null : new SiteSnapshot(e.getSiteId(), e.getSiteName(), e.getSiteCode(),
                         e.getSiteAddress()));
+        act.restoreOpenForAll(e.isOpenForAll());
+        return act;
     }
 
 }

@@ -143,16 +143,42 @@ export function HeaderForm({ act }: { act: ActDetail }) {
             <Form.Item
               name="siteId"
               label="Производственная площадка"
-              extra="По умолчанию — площадка техники"
+              extra={
+                act.status === 'DRAFT'
+                  ? 'По умолчанию — площадка техники'
+                  : 'После открытия акта площадку изменить нельзя: номер акта привязан к площадке'
+              }
             >
-              <SiteSelect organizationId={act.organization.id} />
+              <SiteSelect organizationId={act.organization.id} disabled={act.status !== 'DRAFT'} />
             </Form.Item>
           )}
           <Row gutter={16}>
             {meterType !== 'KM' && (
               <Col xs={24} sm={8}>
-                <Form.Item name="meterHours" label="Моточасы">
-                  <InputNumber min={0} step={0.1} style={{ width: '100%' }} addonAfter="м/ч" />
+                <Form.Item
+                  name="meterHours"
+                  label="Моточасы"
+                  rules={[
+                    {
+                      validator: (_, v) =>
+                        v == null || Number.isInteger(v)
+                          ? Promise.resolve()
+                          : Promise.reject(new Error('Только целое число')),
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    min={0}
+                    step={1}
+                    precision={0}
+                    parser={(v) => Number((v ?? '').replace(/[^\d]/g, '')) as unknown as number}
+                    onKeyDown={(e) => {
+                      if (e.key === ',' || e.key === '.' || e.key === '-' || e.key === 'e')
+                        e.preventDefault();
+                    }}
+                    style={{ width: '100%' }}
+                    addonAfter="м/ч"
+                  />
                 </Form.Item>
               </Col>
             )}

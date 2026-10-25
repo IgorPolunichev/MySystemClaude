@@ -41,6 +41,7 @@ public record ActDetail(
         Instant createdAt,
         Instant updatedAt,
         Instant lastSentAt,
+        boolean openForAll,
         Instant closedAt,
         String closedBy,
         List<ParticipantView> engineers,
@@ -102,6 +103,6 @@ public record ActDetail(
     /** Что можно текущему пользователю — интерфейс показывает только доступные действия. */
     public record Permissions(boolean canEdit, boolean canEditAnyTime, boolean canOpen, boolean canClose,
                               boolean canReopen, boolean canCancel, boolean canDelete, boolean requiresAdminComment,
-                              boolean canAttach) {
+                              boolean canAttach, boolean canShare) {
     }
 }

@@ -138,7 +138,8 @@ export function SiteSelect({
   onChange,
   placeholder = 'Площадка',
   style,
-}: ValueProps & { organizationId?: string | null }) {
+  disabled,
+}: ValueProps & { organizationId?: string | null; disabled?: boolean }) {
   const { data, isFetching } = useListOrganizationSites(
     organizationId ?? '',
     { includeInactive: true },
@@ -151,7 +152,7 @@ export function SiteSelect({
       onChange={(v) => onChange?.(v)}
       allowClear
       loading={isFetching}
-      disabled={!organizationId}
+      disabled={disabled || !organizationId}
       placeholder={organizationId ? placeholder : 'Сначала выберите организацию'}
       style={style}
       options={sites.map((s) => ({

@@ -11,6 +11,7 @@ export interface ActHeaderInput {
   /** @nullable */
   equipmentId?: string | null;
   /**
+     * Моточасы — целое число
      * @minimum 0
      * @nullable
      */

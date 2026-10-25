@@ -24,6 +24,8 @@ export const HISTORY_ACTIONS: Record<string, string> = {
   PHOTO_ADDED: 'Добавлено фото',
   PHOTO_REMOVED: 'Удалено фото',
   ATTACHMENT_ADDED: 'Прикреплён документ',
+  SHARED: 'Открыт доступ для всех инженеров',
+  UNSHARED: 'Доступ только у участников',
   ATTACHMENT_REMOVED: 'Удалён документ',
 };
 

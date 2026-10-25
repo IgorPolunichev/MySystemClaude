@@ -94,6 +94,22 @@ public class ActService {
         return acts.search(query.withParticipant(users.current().userId()), page);
     }
 
+    /** «Доступно всем для редактирования» — включает и выключает автор, руководитель, администратор. */
+    @Transactional
+    public ActDetail share(UUID id, boolean openForAll) {
+        ActContext ctx = loader.load(id);
+        ctx.require(ctx.policy().canShare(), "Открыть доступ к акту может его автор, руководитель или администратор");
+        WorkAct act = ctx.act();
+        if (act.openForAll() == openForAll) {
+            return assembler.assemble(ctx);
+        }
+        act.shareWithAll(openForAll);
+        acts.save(act);
+        history.append(id, openForAll ? "SHARED" : "UNSHARED", null, ctx.user().username());
+        events.publish(EventTypes.ACT_UPDATED, id, actPayload(act, Map.of("openForAll", openForAll)));
+        return get(id);
+    }
+
     /** Карточки моих актов для работы без связи; days — глубина для закрытых и аннулированных. */
     @Transactional(readOnly = true)
     public List<ActDetail> forDevice(int days) {
@@ -162,6 +178,9 @@ public class ActService {
         if (!Objects.equals(c.version(), ctx.act().version())) {
             throw ConflictException.staleVersion();
         }
+        if (c.meterHours() != null && c.meterHours().stripTrailingZeros().scale() > 0) {
+            throw new BusinessRuleException("meterHours", "Моточасы — целое число, без дробной части");
+        }
         String adminComment = Strings.trimToNull(c.adminComment());
         if (ctx.policy().requiresAdminComment() && adminComment == null) {
             throw new BusinessRuleException("adminComment", "Укажите, почему изменяется закрытый акт");
@@ -193,6 +212,15 @@ public class ActService {
             site = siteSnapshot(c.siteId(), organization, !c.siteId().equals(previousSiteId));
         } else if (c.siteId() == null && !equipmentChanged) {
             site = null;
+        }
+        // После открытия номер акта привязан к площадке (её код входит в номер) — площадку менять нельзя.
+        if (act.status() != ActStatus.DRAFT) {
+            UUID was = act.site() == null ? null : act.site().id();
+            UUID now = site == null ? null : site.id();
+            if (!Objects.equals(was, now)) {
+                throw new BusinessRuleException(c.siteId() != null ? "siteId" : "equipmentId",
+                        "Площадку открытого акта изменить нельзя: номер акта привязан к площадке");
+            }
         }
         ExecutorSnapshot executor = act.executor();
         UUID currentExecutorId = executor == null ? null : executor.id();

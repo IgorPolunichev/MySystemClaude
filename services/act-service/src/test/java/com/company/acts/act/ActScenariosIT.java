@@ -508,4 +508,57 @@ class ActScenariosIT extends PostgresIntegrationTest {
         ActDetail again = acts.create(new ActCreateCommand(clientId, UUID.randomUUID()));
         assertThat(again.id()).isEqualTo(first.id()).isEqualTo(clientId);
     }
+
+    @Test
+    void sharedActCanBeContinuedAndClosedByAnotherEngineer() {
+        String author = user();
+        login(author);
+        ActDetail act = acts.open(acts.create(new ActCreateCommand(null, UUID.randomUUID())).id());
+        act = header(act, new BigDecimal("120"), "ТО", null);
+        assertThat(act.permissions().canShare()).isTrue();
+
+        String next = user();
+        login(next);
+        UUID actId = act.id();
+        ActDetail seen = acts.get(actId);
+        assertThat(seen.permissions().canEdit()).isFalse();
+        assertThat(seen.permissions().canShare()).isFalse();
+        assertThatThrownBy(() -> acts.share(actId, true)).isInstanceOf(AccessDeniedException.class);
+
+        login(author);
+        assertThat(acts.share(actId, true).openForAll()).isTrue();
+
+        login(next);
+        ActDetail shared = acts.get(actId);
+        assertThat(shared.permissions().canEdit()).isTrue();
+        assertThat(shared.permissions().canClose()).isTrue();
+        content.addEngineer(actId, FakeDirectory.engineerId(next));
+        content.putTime(actId, FakeDirectory.engineerId(next), DAY, work("09:00-12:00"));
+        assertThat(acts.close(actId).status()).isEqualTo(ActStatus.CLOSED);
+
+        // администратор правит закрытый акт независимо от доступа
+        login(user(), "ADMIN");
+        assertThat(acts.get(actId).permissions().canEdit()).isTrue();
+    }
+
+    @Test
+    void siteIsFixedAfterOpeningAndMeterHoursAreWhole() {
+        login(user());
+        ActDetail draft = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
+        // в черновике площадку менять можно
+        ActDetail moved = acts.updateHeader(draft.id(), new ActHeaderCommand(draft.version(), draft.equipment().id(), null,
+                null, null, null, null, "ТО", null, null, null, null, null, null, null, null, FakeDirectory.SITE_B));
+        assertThat(moved.site().name()).isEqualTo("Площадка Б");
+        ActDetail opened = acts.open(moved.id());
+        assertThatThrownBy(() -> acts.updateHeader(opened.id(), new ActHeaderCommand(opened.version(),
+                opened.equipment().id(), null, null, null, null, null, "ТО", null, null, null, null, null, null, null, null,
+                FakeDirectory.SITE_A))).isInstanceOf(BusinessRuleException.class).hasMessageContaining("Площадку открытого акта");
+        assertThatThrownBy(() -> acts.updateHeader(opened.id(), new ActHeaderCommand(opened.version(),
+                opened.equipment().id(), new BigDecimal("1250.5"), null, null, null, null, "ТО", null, null, null, null, null,
+                null, null, null, FakeDirectory.SITE_B))).isInstanceOf(BusinessRuleException.class).hasMessageContaining("целое");
+        ActDetail ok = acts.updateHeader(opened.id(), new ActHeaderCommand(opened.version(), opened.equipment().id(),
+                new BigDecimal("1250.0"), null, null, null, null, "ТО", null, null, null, null, null, null, null, null,
+                FakeDirectory.SITE_B));
+        assertThat(ok.meterHours()).isEqualByComparingTo("1250");
+    }
 }

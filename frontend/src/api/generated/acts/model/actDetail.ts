@@ -73,4 +73,6 @@ export interface ActDetail {
   attachments: ActAttachment[];
   /** @nullable */
   lastSentAt?: string | null;
+  /** Доступно всем для редактирования */
+  openForAll: boolean;
 }

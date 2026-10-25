@@ -71,7 +71,7 @@ class ActDetailAssembler {
         int withoutCaption = (int) photoList.stream().filter(p -> !p.hasCaption()).count();
         var permissions = new ActDetail.Permissions(policy.canEdit(), policy.canEditAnyTime(), policy.canOpen(),
                 policy.canClose(), policy.canReopen(), policy.canCancel(), policy.canDelete(),
-                policy.requiresAdminComment(), policy.canAttach());
+                policy.requiresAdminComment(), policy.canAttach(), policy.canShare());
         var attachmentViews = attachments.findByAct(act.id()).stream()
                 .map(a -> new ActDetail.AttachmentView(a.id(), a.mediaId(), a.kind(), a.fileName(), a.contentType(),
                         a.sizeBytes(), a.comment(), a.uploadedBy(), a.uploadedAt(),
@@ -89,7 +89,7 @@ class ActDetailAssembler {
                 act.workStartOverride() != null || act.workEndOverride() != null, period.calendarDays(),
                 period.workedDays(), act.shortDescription(), act.detailedDescription(), act.recommendations(),
                 act.customerRepName(), act.customerRepPosition(), act.hideRequisites(), act.hideTravelTime(),
-                act.authorEngineerId(), ts[0], ts[1], ts[2], act.closedAt(), act.closedBy(), engineers, entryViews, parts,
+                act.authorEngineerId(), ts[0], ts[1], ts[2], act.openForAll(), act.closedAt(), act.closedBy(), engineers, entryViews, parts,
                 photoViews, attachmentViews,
                 TimeEntry.hoursOf(entries.stream().mapToLong(TimeEntry::workMinutes).sum()),
                 sum(entries.stream().map(TimeEntry::travelHours).filter(Objects::nonNull)),

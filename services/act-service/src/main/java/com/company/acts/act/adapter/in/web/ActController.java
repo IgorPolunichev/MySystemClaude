@@ -52,6 +52,9 @@ class ActController {
     record PhotoOrderRequest(@NotNull List<UUID> photoIds) {
     }
 
+    record SharingRequest(boolean openForAll) {
+    }
+
     record AddAttachmentRequest(@NotNull(message = "Не указан файл") UUID mediaId,
                                 com.company.acts.act.domain.AttachmentKind kind,
                                 @jakarta.validation.constraints.Size(max = 300) String comment) {
@@ -259,6 +262,12 @@ class ActController {
     @DeleteMapping("/{id}/photos/{photoId}")
     ActDetail deletePhoto(@PathVariable UUID id, @PathVariable UUID photoId) {
         return photos.delete(id, photoId);
+    }
+
+    /** «Доступно всем для редактирования». */
+    @PutMapping("/{id}/sharing")
+    ActDetail share(@PathVariable UUID id, @RequestBody SharingRequest request) {
+        return acts.share(id, request.openForAll());
     }
 
     @PostMapping("/{id}/attachments")

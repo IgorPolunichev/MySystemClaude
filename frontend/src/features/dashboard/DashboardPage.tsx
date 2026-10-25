@@ -13,6 +13,7 @@ import {
   Spin,
   Table,
   Tag,
+  theme,
   Typography,
 } from 'antd';
 import { CalendarOutlined, FileExcelOutlined, SyncOutlined } from '@ant-design/icons';
@@ -101,8 +102,38 @@ function Gauge({
 }
 
 /** Дашборд продуктивных часов (раздел 9 SPEC.md). */
+/**
+ * Цвета графиков из текущей темы: в тёмной — приглушённые, без белого фона всплывающей подсказки
+ * и ярких синих и белых столбцов.
+ */
+function useChartColors() {
+  const { token } = theme.useToken();
+  const dark = document.querySelector('.theme-root')?.getAttribute('data-theme') === 'dark';
+  return {
+    grid: token.colorBorderSecondary,
+    axis: { fill: token.colorTextSecondary, fontSize: 12 },
+    norm: dark ? '#3c4a57' : '#c3cfda',
+    fact: dark ? '#6f8fae' : '#1f5c99',
+    line: dark ? '#c9a24a' : '#d99a1e',
+    tooltip: {
+      contentStyle: {
+        background: token.colorBgElevated,
+        border: `1px solid ${token.colorBorder}`,
+        borderRadius: 6,
+        color: token.colorText,
+        boxShadow: token.boxShadowSecondary,
+      },
+      labelStyle: { color: token.colorText, fontWeight: 600 },
+      itemStyle: { color: token.colorTextSecondary },
+      cursor: { fill: dark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' },
+    },
+    legend: { color: token.colorTextSecondary },
+  };
+}
+
 export function DashboardPage() {
   const navigate = useNavigate();
+  const colors = useChartColors();
   const { message } = App.useApp();
   const { isAdmin } = useRoles();
   const [kind, setKind] = useState<PeriodKind>('month');
@@ -297,13 +328,19 @@ export function DashboardPage() {
               <Card size="small" title="Факт против нормы" className="chart-card">
                 <ResponsiveContainer width="100%" height={Math.max(220, engineers.length * 36)}>
                   <BarChart data={chartData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
-                    <Tooltip formatter={(v: number) => hours(v)} />
-                    <Legend />
-                    <Bar dataKey="Норма" fill="#b8c7d6" />
-                    <Bar dataKey="Факт" fill="#1f5c99" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                    <XAxis type="number" tick={colors.axis} stroke={colors.grid} />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={150}
+                      tick={colors.axis}
+                      stroke={colors.grid}
+                    />
+                    <Tooltip formatter={(v: number) => hours(v)} {...colors.tooltip} />
+                    <Legend wrapperStyle={colors.legend} />
+                    <Bar dataKey="Норма" fill={colors.norm} radius={[0, 3, 3, 0]} />
+                    <Bar dataKey="Факт" fill={colors.fact} radius={[0, 3, 3, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </Card>
@@ -338,11 +375,21 @@ export function DashboardPage() {
                     }))}
                     margin={{ left: 0, right: 20 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                    <YAxis />
-                    <Tooltip formatter={(v: number) => hours(v)} />
-                    <Line type="linear" dataKey="Часы" stroke="#d99a1e" strokeWidth={2} dot={{ r: 3 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} />
+                    <XAxis dataKey="date" tick={{ ...colors.axis, fontSize: 11 }} stroke={colors.grid} />
+                    <YAxis tick={colors.axis} stroke={colors.grid} />
+                    <Tooltip
+                      formatter={(v: number) => hours(v)}
+                      {...colors.tooltip}
+                      cursor={{ stroke: colors.grid }}
+                    />
+                    <Line
+                      type="linear"
+                      dataKey="Часы"
+                      stroke={colors.line}
+                      strokeWidth={2}
+                      dot={{ r: 3, fill: colors.line }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               )}
