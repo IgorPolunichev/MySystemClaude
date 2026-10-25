@@ -87,6 +87,8 @@ class AnalyticsScenariosIT extends PostgresIntegrationTest {
     NormService norms;
     @Autowired
     RebuildService rebuild;
+    @Autowired
+    com.company.acts.analytics.application.ScheduleService schedules;
 
     @AfterEach
     void logout() {
@@ -215,5 +217,52 @@ class AnalyticsScenariosIT extends PostgresIntegrationTest {
 
     private static DashboardView.EngineerRow row(DashboardView view, UUID id) {
         return view.engineers().stream().filter(r -> r.engineerId().equals(id)).findFirst().orElseThrow();
+    }
+
+    @Test
+    void schedulesAreBuiltShiftedMarkedAndProtected() {
+        var command = new com.company.acts.analytics.application.ScheduleService.TemplateCommand("2/2 днём",
+                com.company.acts.analytics.domain.schedule.ScheduleMode.ROTATION, 2, 2, java.time.LocalTime.of(8, 0),
+                java.time.LocalTime.of(20, 0), 60, null, null, null, 0, false, 0, true);
+        login("kc-e1", "ENGINEER");
+        assertThatThrownBy(() -> schedules.saveTemplate(null, command)).isInstanceOf(AccessDeniedException.class);
+
+        login("kc-e2", "DEPARTMENT_HEAD");
+        var template = schedules.saveTemplate(null, command);
+        assertThat(template.dayHours()).isEqualByComparingTo("11");
+        var group = schedules.createGroup(new com.company.acts.analytics.application.ScheduleService.GroupCommand(null,
+                "Отдел 1 — 2/2", D1, null, "Северный карьер", template.id(), LocalDate.of(2026, 1, 1), null, null,
+                List.of(E1, E2)));
+        assertThat(group.members()).extracting(m -> m.crew().name()).containsExactly("A", "B");
+        assertThat(group.members().get(0).partnerId()).isEqualTo(E2);
+        assertThat(group.requiredDay()).isEqualTo(1);
+        // руководитель не составляет графики чужого отдела
+        assertThatThrownBy(() -> schedules.createGroup(new com.company.acts.analytics.application.ScheduleService.GroupCommand(
+                null, "Чужой", D2, null, null, template.id(), LocalDate.of(2026, 1, 1), null, null, List.of(E3))))
+                .isInstanceOf(AccessDeniedException.class);
+
+        var grid = schedules.grid(group.id(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 8));
+        assertThat(grid.employees().get(0).days()).extracting(d -> d.letter()).containsExactly("Д", "Д", "В", "В", "Д", "Д", "В", "В");
+        assertThat(grid.employees().get(1).days()).extracting(d -> d.letter()).containsExactly("В", "В", "Д", "Д", "В", "В", "Д", "Д");
+        assertThat(grid.employees().get(0).totalHours()).isEqualByComparingTo("44");
+        assertThat(grid.shortageDays()).isZero();
+
+        // смещение заезда одного — сменщик сдвигается вместе с ним; покрытие сохраняется
+        var shifted = schedules.shiftArrival(group.id(), java.util.Set.of(E1), 1);
+        assertThat(shifted.members()).extracting(m -> m.offsetDays()).containsExactly(1, 1);
+        assertThat(schedules.grid(group.id(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 3, 31)).shortageDays()).isZero();
+
+        // отпуск без замены — нехватка; утверждение снимается любой правкой
+        schedules.approve(group.id());
+        schedules.mark(group.id(), E1, LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3),
+                com.company.acts.analytics.domain.schedule.ShiftKind.VACATION, "Отпуск");
+        var marked = schedules.grid(group.id(), LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 3));
+        assertThat(marked.employees().get(0).days()).allSatisfy(d -> assertThat(d.manual()).isTrue());
+        assertThat(marked.shortageDays()).isEqualTo(2);
+        assertThat(schedules.group(group.id()).approvedAt()).isNull();
+
+        // норма по графику для дашборда: смена 11 ч в рабочий день
+        assertThat(schedules.plannedMinutes(E2, LocalDate.of(2026, 1, 4), LocalDate.of(2026, 1, 4)))
+                .containsEntry(LocalDate.of(2026, 1, 4), 660);
     }
 }

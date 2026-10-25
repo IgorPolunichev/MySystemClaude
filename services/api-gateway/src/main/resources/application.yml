@@ -67,7 +67,7 @@ spring:
           - id: analytics-service
             uri: ${ANALYTICS_SERVICE_URL:http://localhost:8086}
             predicates:
-              - Path=/api/v1/analytics/**,/api/v1/norms/**,/api/v1/calendar/**
+              - Path=/api/v1/analytics/**,/api/v1/norms/**,/api/v1/calendar/**,/api/v1/schedules/**
           - id: analytics-service-system
             uri: ${ANALYTICS_SERVICE_URL:http://localhost:8086}
             predicates:
