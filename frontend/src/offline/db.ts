@@ -18,7 +18,8 @@ export interface OutboxOp {
   seq?: number;
   opId: string;
   actId: string;
-  method: 'POST' | 'PUT' | 'DELETE';
+  /** UPLOAD — файл с ПК: загрузить в хранилище, затем привязать к акту (фото или документ). */
+  method: 'POST' | 'PUT' | 'DELETE' | 'UPLOAD';
   url: string;
   body?: unknown;
   /** Что сделано — для журнала синхронизации. */

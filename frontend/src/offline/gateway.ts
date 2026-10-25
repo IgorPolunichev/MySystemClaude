@@ -85,3 +85,14 @@ export async function remember(method: string, path: string, data: unknown): Pro
     // Локальная база недоступна (приватный режим браузера) — работаем только онлайн.
   }
 }
+
+/** Файл к акту идёт на ПК (а не сразу на сервер): нет связи, акт создан без связи или у него есть неотправленные изменения. */
+export async function filesGoLocal(actId: string): Promise<boolean> {
+  if (!getAccessToken() || !network.get().online || (typeof navigator !== 'undefined' && !navigator.onLine))
+    return true;
+  const [pending, stored] = await Promise.all([
+    db.outbox.where('actId').equals(actId).count(),
+    db.acts.get(actId),
+  ]);
+  return pending > 0 || !!stored?.localOnly;
+}

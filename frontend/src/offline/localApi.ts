@@ -17,6 +17,7 @@ import {
 import { db, getMeta, setMeta, type OutboxOp, type StoredAct } from './db';
 import { loadRefs, organizations, parts } from './refs';
 import { uuidv7 } from './uuid';
+import { captionLocalPhoto, removeLocalItem } from './files';
 import { currentUsername } from './user';
 
 /** Ответ «локального сервера» в той же форме, что у сгенерированного клиента. */
@@ -188,7 +189,7 @@ export function isQueueable(method: string, path: string): boolean {
   if (method === 'GET') return false;
   if (method === 'POST' && path === '/api/v1/acts') return true;
   return (
-    /^\/api\/v1\/acts\/[^/]+(\/(engineers(\/[^/]+)?|time\/[^/]+\/[^/]+|parts(\/[^/]+)?|photos\/[^/]+|open))?$/.test(
+    /^\/api\/v1\/acts\/[^/]+(\/(engineers(\/[^/]+)?|time\/[^/]+\/[^/]+|parts(\/[^/]+)?|photos\/[^/]+|attachments\/local-att(?::|%3A)[^/]+|open))?$/.test(
       path,
     ) && !(method === 'DELETE' && /^\/api\/v1\/acts\/[^/]+$/.test(path))
   );
@@ -228,6 +229,26 @@ export async function localMutate(
   const actId = actIdOf(path, body);
   const stored = actId ? await db.acts.get(actId) : undefined;
   if (!actId || !stored) throw new OfflineUnavailable();
+  // Фото и документы, которые ещё на ПК: подпись и удаление — прямо в очереди загрузки, без отдельной операции.
+  const local = path.match(/\/(photos|attachments)\/(local-(?:photo|att)(?::|%3A)[^/]+)$/i);
+  if (local) {
+    const updated =
+      method === 'DELETE'
+        ? await removeLocalItem(actId, decodeURIComponent(local[2]))
+        : await captionLocalPhoto(
+            actId,
+            decodeURIComponent(local[2]),
+            (body as { caption?: string | null }).caption ?? null,
+          );
+    return { data: { ...updated, number: updated.number ?? stored.tempNumber ?? null }, status: 200 };
+  }
+  if (
+    method === 'PUT' &&
+    /\/photos\/order$/.test(path) &&
+    stored.detail.photos.some((p) => p.id.startsWith('local-photo:'))
+  ) {
+    throw new Error('Порядок фото можно менять после того, как фото с ПК будут отправлены на сервер');
+  }
   if (stored.detail.status === 'CLOSED' || stored.detail.status === 'CANCELLED') {
     throw new Error('Акт закрыт или аннулирован — изменить его без связи нельзя');
   }

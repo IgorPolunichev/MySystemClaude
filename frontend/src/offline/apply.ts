@@ -128,7 +128,7 @@ export function createLocalAct(
       canCancel: false,
       canDelete: true,
       requiresAdminComment: false,
-      canAttach: false,
+      canAttach: true,
     },
   };
   return act as unknown as ActDetail;

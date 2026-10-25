@@ -4,6 +4,7 @@ import { db, getMeta, setMeta, type OutboxOp } from './db';
 import { network } from './network';
 import { getDeviceScope } from './db';
 import { currentUsername } from './user';
+import type { UploadBody } from './files';
 
 /**
  * Синхронизация (раздел 17 SPEC.md):
@@ -64,6 +65,11 @@ async function push(): Promise<boolean> {
   );
   for (const op of ops) {
     if (blocked.has(op.actId)) continue;
+    if (op.method === 'UPLOAD') {
+      const outcome = await pushUpload(op);
+      if (outcome === 'offline') return false;
+      continue;
+    }
     let body = op.body;
     // Правка шапки отправляется от версии из карточки на ПК: до первой удачной операции это версия, которую
     // видел пользователь (так распознаётся чужая правка на сервере), после — версия, которую вернул сервер на
@@ -127,6 +133,99 @@ async function push(): Promise<boolean> {
     }
   }
   return true;
+}
+
+/**
+ * Файл с ПК: загрузить в хранилище (media-service), затем привязать к акту. Ссылки на файл на ПК переносятся на
+ * настоящий идентификатор, чтобы превью оставалось доступным без связи.
+ */
+async function pushUpload(op: OutboxOp): Promise<'done' | 'offline' | 'failed'> {
+  const b = op.body as UploadBody;
+  const file = await db.files.get(`${b.localMediaId}:original`);
+  if (!file) {
+    await db.outbox.update(op.seq!, { status: 'rejected', error: 'Файл не найден на этом ПК' });
+    return 'failed';
+  }
+  const form = new FormData();
+  form.append('file', new File([file.blob], b.fileName, { type: b.contentType }));
+  form.append('ownerType', b.target === 'photo' ? 'ACT_PHOTO' : 'ACT_ATTACHMENT');
+  form.append('ownerId', op.actId);
+  const headers = new Headers({ Accept: 'application/json' });
+  const token = getAccessToken();
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  let mediaId: string;
+  try {
+    const r = await fetch('/api/v1/media', { method: 'POST', headers, body: form });
+    if (r.status === 0 || r.status >= 500) {
+      network.setOnline(false);
+      return 'offline';
+    }
+    const data = (await r.json().catch(() => ({}))) as { id?: string; detail?: string; title?: string };
+    if (!r.ok || !data.id) {
+      if (r.status === 401) return 'offline';
+      await db.outbox.update(op.seq!, {
+        status: 'rejected',
+        error: data.detail ?? data.title ?? `Ошибка ${r.status}`,
+        attempts: op.attempts + 1,
+      });
+      return 'failed';
+    }
+    mediaId = data.id;
+  } catch {
+    network.setOnline(false);
+    return 'offline';
+  }
+  const attach =
+    b.target === 'photo'
+      ? { mediaId, caption: b.caption ?? null }
+      : { mediaId, kind: b.kind, comment: b.comment ?? null };
+  let result;
+  try {
+    result = await call('POST', op.url, attach);
+  } catch {
+    network.setOnline(false);
+    return 'offline';
+  }
+  if (result.status === 0 || result.status >= 500) {
+    network.setOnline(false);
+    return 'offline';
+  }
+  if (result.status < 200 || result.status >= 300) {
+    const message = (result.data as { detail?: string; title?: string })?.detail ?? `Ошибка ${result.status}`;
+    await db.outbox.update(op.seq!, { status: 'rejected', error: message, attempts: op.attempts + 1 });
+    return 'failed';
+  }
+  // Файл теперь в хранилище: переносим копии на ПК на настоящий идентификатор.
+  for (const variant of ['original', 'thumbnail']) {
+    const local = await db.files.get(`${b.localMediaId}:${variant}`);
+    if (local) {
+      await db.files.put({ key: `${mediaId}:${variant}`, blob: local.blob, savedAt: Date.now() });
+      await db.files.delete(`${b.localMediaId}:${variant}`);
+    }
+  }
+  if (isActDetail(result.data)) {
+    const stored = await db.acts.get(op.actId);
+    // Остальные ещё не отправленные файлы акта остаются видны в карточке на ПК.
+    const pending = (await db.outbox.where('actId').equals(op.actId).toArray())
+      .filter((o) => o.seq !== op.seq && o.method === 'UPLOAD')
+      .map((o) => (o.body as UploadBody).localItemId);
+    const keepPhotos = (stored?.detail.photos ?? []).filter((p) => pending.includes(p.id));
+    const keepAttachments = (stored?.detail.attachments ?? []).filter((x) => pending.includes(x.id));
+    const detail = {
+      ...result.data,
+      photos: [...result.data.photos, ...keepPhotos],
+      attachments: [...result.data.attachments, ...keepAttachments],
+    };
+    await db.acts.put({
+      ...(stored ?? { id: op.actId, savedAt: 0 }),
+      id: op.actId,
+      detail,
+      localOnly: false,
+      savedAt: Date.now(),
+    });
+  }
+  await db.outbox.delete(op.seq!);
+  return 'done';
 }
 
 async function pages<T>(url: string): Promise<T[]> {

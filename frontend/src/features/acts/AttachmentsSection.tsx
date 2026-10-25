@@ -29,7 +29,9 @@ import { getGetActQueryKey } from '../../api/generated/acts/acts';
 import { useAddActAttachment, useDeleteActAttachment } from '../../api/generated/acts/act-attachments';
 import type { ActAttachment, ActDetail, AttachmentKind } from '../../api/generated/acts/model';
 import { getGetMediaContentUrl, uploadMedia } from '../../api/generated/media/media';
-import { downloadFile } from '../../api/http';
+import { ApiError, downloadFile } from '../../api/http';
+import { isLocalMedia, localFileUrl, queueLocalAttachment } from '../../offline/files';
+import { filesGoLocal } from '../../offline/gateway';
 import { ok } from '../../api/unwrap';
 import { getAccessToken } from '../../app/auth/tokenStore';
 import { errorText } from '../../shared/lib/apiErrors';
@@ -56,6 +58,15 @@ function size(bytes: number) {
 /** Открыть PDF или изображение в новой вкладке (запрос с токеном, затем blob:). */
 async function openInTab(mediaId: string) {
   const tab = window.open('', '_blank');
+  if (isLocalMedia(mediaId)) {
+    const url = await localFileUrl(mediaId);
+    if (!url) {
+      tab?.close();
+      throw new Error('Файл не найден на этом ПК');
+    }
+    if (tab) tab.location.href = url;
+    return;
+  }
   const token = getAccessToken();
   const response = await fetch(getGetMediaContentUrl(mediaId), {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -95,12 +106,29 @@ export function AttachmentsSection({ act }: { act: ActDetail }) {
       return;
     }
     setUploading(true);
+    const local = async () => {
+      await queueLocalAttachment(act.id, file, kind, comment.trim() || null);
+      setComment('');
+      await refresh();
+      message.info('Нет связи: документ сохранён на ПК и будет отправлен при синхронизации');
+    };
     try {
-      const media = ok(await uploadMedia({ file, ownerType: 'ACT_ATTACHMENT', ownerId: act.id }))!;
-      await add.mutateAsync({
-        id: act.id,
-        data: { mediaId: media.id, kind, comment: comment.trim() || null },
-      });
+      if (await filesGoLocal(act.id)) {
+        await local();
+        return;
+      }
+      try {
+        const media = ok(await uploadMedia({ file, ownerType: 'ACT_ATTACHMENT', ownerId: act.id }))!;
+        await add.mutateAsync({
+          id: act.id,
+          data: { mediaId: media.id, kind, comment: comment.trim() || null },
+        });
+      } catch (e) {
+        const unreachable = !(e instanceof ApiError) || e.status === 0 || e.status >= 502;
+        if (!unreachable) throw e;
+        await local();
+        return;
+      }
       setComment('');
       await refresh();
       message.success(kind === 'SIGNED_ACT' ? 'Скан подписанного акта прикреплён' : 'Документ прикреплён');
@@ -191,10 +219,22 @@ export function AttachmentsSection({ act }: { act: ActDetail }) {
                     type="text"
                     icon={<DownloadOutlined />}
                     onClick={() =>
-                      void downloadFile(
-                        `/api/v1/media/${a.mediaId}/content?download=true`,
-                        a.fileName ?? 'документ',
-                      ).catch((e) => message.error(errorText(e)))
+                      void (async () => {
+                        if (isLocalMedia(a.mediaId)) {
+                          const url = await localFileUrl(a.mediaId);
+                          if (!url) throw new Error('Файл не найден на этом ПК');
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = a.fileName ?? 'документ';
+                          link.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 30_000);
+                          return;
+                        }
+                        await downloadFile(
+                          `/api/v1/media/${a.mediaId}/content?download=true`,
+                          a.fileName ?? 'документ',
+                        );
+                      })().catch((e) => message.error(errorText(e)))
                     }
                   />
                 </Tooltip>,
@@ -217,6 +257,11 @@ export function AttachmentsSection({ act }: { act: ActDetail }) {
                   <Space wrap size={6}>
                     <span>{a.fileName ?? 'Без имени'}</span>
                     {a.kind === 'SIGNED_ACT' ? <Tag color="green">подписанный акт</Tag> : <Tag>документ</Tag>}
+                    {isLocalMedia(a.mediaId) && (
+                      <Tag color="orange" title="Сохранён на этом ПК, будет отправлен при синхронизации">
+                        на ПК
+                      </Tag>
+                    )}
                   </Space>
                 }
                 description={

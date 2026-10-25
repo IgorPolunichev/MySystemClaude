@@ -23,6 +23,7 @@ export function useMediaUrl(mediaId: string | undefined, variant: 'thumbnail' | 
       const key = `${mediaId}:${variant}`;
       const local = await db.files.get(key).catch(() => undefined);
       if (local) return local.blob;
+      if (mediaId!.startsWith('local:')) throw new Error('Файл не найден на этом ПК');
       const token = getAccessToken();
       const response = await fetch(getGetMediaContentUrl(mediaId!, { variant }), {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,

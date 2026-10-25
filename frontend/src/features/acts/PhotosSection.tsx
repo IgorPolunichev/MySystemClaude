@@ -9,6 +9,7 @@ import {
   Progress,
   Space,
   Spin,
+  Tag,
   Typography,
   Upload,
 } from 'antd';
@@ -35,6 +36,9 @@ import {
 } from '../../api/generated/acts/act-photos';
 import type { ActDetail, ActPhoto } from '../../api/generated/acts/model';
 import { uploadMedia } from '../../api/generated/media/media';
+import { ApiError } from '../../api/http';
+import { isLocalMedia, queueLocalPhoto } from '../../offline/files';
+import { filesGoLocal } from '../../offline/gateway';
 import { ok } from '../../api/unwrap';
 import { errorText } from '../../shared/lib/apiErrors';
 import { useMediaUrl } from '../../shared/lib/useMediaBlob';
@@ -84,6 +88,15 @@ function PhotoCard({
       className={`photo-card${isDragging ? ' dragging' : ''}${missing ? ' missing' : ''}`}
       style={{ transform: CSS.Transform.toString(transform), transition }}
     >
+      {isLocalMedia(photo.mediaId) && (
+        <Tag
+          color="orange"
+          className="photo-local"
+          title="Фото сохранено на этом ПК и будет отправлено на сервер при синхронизации"
+        >
+          на ПК
+        </Tag>
+      )}
       <button type="button" className="photo-thumb" onClick={onOpen} aria-label={`Открыть фото ${number}`}>
         {url ? (
           <img src={url} alt={caption || `Фото ${number}`} />
@@ -178,11 +191,25 @@ export function PhotosSection({ act }: { act: ActDetail }) {
     if (!images.length) return;
     setQueue({ done: 0, total: images.length });
     let failed = 0;
+    let onPc = 0;
     for (let i = 0; i < images.length; i++) {
       try {
         const file = await prepare(images[i]);
-        const media = ok(await uploadMedia({ file, ownerType: 'ACT_PHOTO', ownerId: act.id }))!;
-        await add.mutateAsync({ id: act.id, data: { mediaId: media.id, caption: null } });
+        // Без связи (или пока у акта есть неотправленные изменения) фото сохраняется на ПК и уйдёт при синхронизации.
+        if (await filesGoLocal(act.id)) {
+          await queueLocalPhoto(act.id, file, images[i].name, null);
+          onPc++;
+        } else {
+          try {
+            const media = ok(await uploadMedia({ file, ownerType: 'ACT_PHOTO', ownerId: act.id }))!;
+            await add.mutateAsync({ id: act.id, data: { mediaId: media.id, caption: null } });
+          } catch (e) {
+            const unreachable = !(e instanceof ApiError) || e.status === 0 || e.status >= 502;
+            if (!unreachable) throw e;
+            await queueLocalPhoto(act.id, file, images[i].name, null);
+            onPc++;
+          }
+        }
       } catch (e) {
         failed++;
         message.error(`${images[i].name}: ${errorText(e)}`);
@@ -191,8 +218,13 @@ export function PhotosSection({ act }: { act: ActDetail }) {
     }
     setQueue(null);
     await refresh();
-    if (images.length - failed > 0)
+    if (onPc > 0) {
+      message.info(
+        `Нет связи: фото сохранены на ПК (${onPc}) и будут отправлены при синхронизации. Добавьте подписи.`,
+      );
+    } else if (images.length - failed > 0) {
       message.success(`Загружено фото: ${images.length - failed}. Добавьте подписи.`);
+    }
   };
 
   const onDragEnd = async (event: DragEndEvent) => {

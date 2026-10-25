@@ -505,6 +505,7 @@ body {
 }
 
 .photo-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -756,4 +757,11 @@ body {
 .share-switch {
   padding: 0 4px;
   white-space: nowrap;
+}
+
+.photo-local {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
 }

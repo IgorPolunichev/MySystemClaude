@@ -444,4 +444,67 @@ describe('офлайн: акт без связи → очередь → синх
     expect(await db.outbox.count()).toBe(0);
     expect(network.get().online).toBe(true);
   });
+
+  it('фото без связи: на ПК → подпись → синхронизация загружает файл и привязывает к акту', async () => {
+    auth.token = 'token';
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    const id = '01990000-0000-7000-8000-0000000000a7';
+    await apiFetch('/api/v1/acts', { method: 'POST', body: JSON.stringify({ id, equipmentId: 'q1' }) });
+    const { queueLocalPhoto, isLocalMedia } = await import('./files');
+    const photo = await queueLocalPhoto(id, new Blob(['jpeg'], { type: 'image/jpeg' }), 'IMG_1.jpg', null);
+    const second = await queueLocalPhoto(id, new Blob(['jpeg2'], { type: 'image/jpeg' }), 'IMG_2.jpg', null);
+    expect(isLocalMedia(photo.mediaId)).toBe(true);
+    await apiFetch(`/api/v1/acts/${id}/photos/${photo.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ caption: 'Течь масла' }),
+    });
+    await apiFetch(`/api/v1/acts/${id}/photos/${second.id}`, { method: 'DELETE' });
+    const local = await apiFetch<{ data: { photos: { caption: string | null }[] } }>(`/api/v1/acts/${id}`);
+    expect(local.data.photos.map((p) => p.caption)).toEqual(['Течь масла']);
+    expect((await db.outbox.toArray()).map((o) => o.label)).toEqual(['Создание акта', 'Фото']);
+
+    const posted: string[] = [];
+    let attachBody: { mediaId: string; caption: string } | undefined;
+    const server = {
+      id,
+      version: 1,
+      status: 'DRAFT',
+      number: null,
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [] as unknown[],
+      attachments: [],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        posted.push(`${init?.method ?? 'GET'} ${url}`);
+        if (url === '/api/v1/media') return new Response(JSON.stringify({ id: 'm-real' }), { status: 201 });
+        if (url.endsWith('/photos') && init?.method === 'POST') {
+          attachBody = JSON.parse(String(init.body));
+          server.photos = [{ id: 'p-real', mediaId: 'm-real', caption: attachBody!.caption, position: 1 }];
+          return new Response(JSON.stringify(server), { status: 201 });
+        }
+        if (url.startsWith('/api/v1/acts/device'))
+          return new Response(JSON.stringify([server]), { status: 200 });
+        return new Response(JSON.stringify(server), { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow();
+    expect(posted.slice(0, 3)).toEqual([
+      'POST /api/v1/acts',
+      'POST /api/v1/media',
+      `POST /api/v1/acts/${id}/photos`,
+    ]);
+    expect(attachBody).toEqual({ mediaId: 'm-real', caption: 'Течь масла' });
+    expect(await db.outbox.count()).toBe(0);
+    expect(await db.files.get('m-real:original')).toBeDefined();
+    expect(await db.files.get(`${photo.mediaId}:original`)).toBeUndefined();
+    expect(await db.files.get(`${second.mediaId}:original`)).toBeUndefined();
+  });
 });
