@@ -282,4 +282,113 @@ describe('офлайн: акт без связи → очередь → синх
     await syncNow();
     expect(calls.some((u) => u.startsWith('/api/v1/acts/device'))).toBe(true);
   });
+
+  it('акт без связи + «моргнувшая» связь при отправке: правки шапки уходят без ложного конфликта', async () => {
+    auth.token = 'token';
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    const id = '01990000-0000-7000-8000-0000000000d4';
+    await apiFetch('/api/v1/acts', { method: 'POST', body: JSON.stringify({ id, equipmentId: 'q1' }) });
+    await apiFetch(`/api/v1/acts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ version: 0, equipmentId: 'q1', shortDescription: 'ТО' }),
+    });
+    await apiFetch(`/api/v1/acts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ version: 0, equipmentId: 'q1', shortDescription: 'ТО-2000' }),
+    });
+
+    // Сервер проверяет версию, как настоящий: при создании — версия 1, каждая правка шапки увеличивает её.
+    const server = {
+      id,
+      version: 0,
+      status: 'DRAFT',
+      number: null,
+      shortDescription: null as string | null,
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [],
+    };
+    let dropAfterCreate = true;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        const method = init?.method ?? 'GET';
+        if (url.startsWith('/api/v1/acts/device'))
+          return new Response(JSON.stringify([server]), { status: 200 });
+        if (method === 'POST' && url === '/api/v1/acts') {
+          server.version = 1;
+          return new Response(JSON.stringify(server), { status: 201 });
+        }
+        if (method === 'PUT') {
+          if (dropAfterCreate) {
+            dropAfterCreate = false;
+            throw new TypeError('Failed to fetch');
+          }
+          const body = JSON.parse(String(init?.body)) as { version: number; shortDescription: string };
+          if (body.version !== server.version) {
+            return new Response(
+              JSON.stringify({ title: 'Конфликт', detail: 'Акт изменён другим пользователем' }),
+              { status: 409 },
+            );
+          }
+          server.version += 1;
+          server.shortDescription = body.shortDescription;
+          return new Response(JSON.stringify(server), { status: 200 });
+        }
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow(); // создание ушло, на правке связь оборвалась
+    expect((await db.outbox.toArray()).map((o) => o.status)).toEqual(['pending', 'pending']);
+    await syncNow(); // связь вернулась
+    expect(await db.outbox.count()).toBe(0);
+    expect(server.shortDescription).toBe('ТО-2000');
+    expect(server.version).toBe(3);
+  });
+
+  it('настоящий конфликт по-прежнему распознаётся: акт со связью изменил коллега', async () => {
+    auth.token = 'token';
+    const id = '01990000-0000-7000-8000-0000000000e5';
+    const base = {
+      id,
+      version: 5,
+      status: 'OPEN',
+      number: 'АВР-5',
+      permissions: {},
+      timeEntries: [],
+      engineers: [],
+      parts: [],
+      photos: [],
+    };
+    await db.acts.put({ id, detail: base as never, localOnly: false, savedAt: 0 });
+    network.setOnline(false);
+    const { apiFetch } = await import('../api/http');
+    await apiFetch(`/api/v1/acts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ version: 5, shortDescription: 'моё' }),
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.startsWith('/api/v1/acts/device')) return new Response('[]', { status: 200 });
+        if (init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body)) as { version: number };
+          // коллега уже сохранил версию 6
+          return new Response(JSON.stringify({ title: 'Конфликт' }), {
+            status: body.version === 6 ? 200 : 409,
+          });
+        }
+        return new Response(JSON.stringify({ items: [] }), { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow();
+    expect((await db.outbox.toArray()).map((o) => o.status)).toEqual(['conflict']);
+  });
 });

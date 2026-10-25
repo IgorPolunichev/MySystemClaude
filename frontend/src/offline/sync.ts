@@ -49,7 +49,6 @@ export async function refreshQueueState(): Promise<void> {
 /** Отправить очередь; возвращает false, если связь пропала. */
 async function push(): Promise<boolean> {
   const blocked = new Set((await db.outbox.where('status').equals('conflict').toArray()).map((o) => o.actId));
-  const versions = new Map<string, number>();
   const user = currentUsername();
   // Операции другого пользователя этого ПК ждут его входа: сервер проверяет права автора.
   const ops = (await db.outbox.where('status').equals('pending').sortBy('seq')).filter(
@@ -58,9 +57,13 @@ async function push(): Promise<boolean> {
   for (const op of ops) {
     if (blocked.has(op.actId)) continue;
     let body = op.body;
-    // Последовательные правки шапки без связи: следующая отправляется от версии, которую вернул сервер.
-    if (op.method === 'PUT' && /^\/api\/v1\/acts\/[^/]+$/.test(op.url) && versions.has(op.actId)) {
-      body = { ...(body as object), version: versions.get(op.actId) };
+    // Правка шапки отправляется от версии из карточки на ПК: до первой удачной операции это версия, которую
+    // видел пользователь (так распознаётся чужая правка на сервере), после — версия, которую вернул сервер на
+    // нашу предыдущую операцию. Карточка хранится в базе ПК, поэтому версия не теряется, если связь «моргнула»
+    // между операциями. У акта, созданного без связи, версии на сервере до создания нет — ждём создания.
+    if (op.method === 'PUT' && /^\/api\/v1\/acts\/[^/]+$/.test(op.url)) {
+      const stored = await db.acts.get(op.actId);
+      if (stored && !stored.localOnly) body = { ...(body as object), version: stored.detail.version };
     }
     let result;
     try {
@@ -76,7 +79,6 @@ async function push(): Promise<boolean> {
           ? (result.data as { act: ActDetail }).act
           : undefined;
       if (detail) {
-        versions.set(op.actId, detail.version);
         const stored = await db.acts.get(op.actId);
         await db.acts.put({
           ...(stored ?? { id: op.actId, savedAt: 0 }),
