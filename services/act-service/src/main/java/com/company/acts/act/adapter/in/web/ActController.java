@@ -139,8 +139,10 @@ class ActController {
 
     /** Мои акты для офлайн-работы: черновики, открытые и изменённые за days дней (по умолчанию 90). */
     @GetMapping("/device")
-    List<ActDetail> forDevice(@RequestParam(defaultValue = "90") int days) {
-        return acts.forDevice(days);
+    List<ActDetail> forDevice(@RequestParam(defaultValue = "90") int days,
+                              @RequestParam(required = false) List<UUID> siteId,
+                              @RequestParam(required = false) List<UUID> organizationId) {
+        return acts.forDevice(days, siteId, organizationId);
     }
 
     @GetMapping("/short-descriptions")

@@ -97,9 +97,17 @@ public class ActService {
     /** Карточки моих актов для работы без связи; days — глубина для закрытых и аннулированных. */
     @Transactional(readOnly = true)
     public List<ActDetail> forDevice(int days) {
+        return forDevice(days, List.of(), List.of());
+    }
+
+    /** Мои акты и акты площадок и заказчиков, к которым привязан ПК; не больше 2000. */
+    @Transactional(readOnly = true)
+    public List<ActDetail> forDevice(int days, List<UUID> siteIds, List<UUID> organizationIds) {
         int depth = Math.max(1, Math.min(days, 366));
         CurrentUser user = users.current();
-        return acts.idsForDevice(user.userId(), Instant.now(clock).minus(java.time.Duration.ofDays(depth)), 500).stream()
+        return acts.idsForDevice(user.userId(), siteIds == null ? List.of() : siteIds,
+                        organizationIds == null ? List.of() : organizationIds,
+                        Instant.now(clock).minus(java.time.Duration.ofDays(depth)), 2000).stream()
                 .map(id -> assembler.assemble(loader.load(id))).toList();
     }
 

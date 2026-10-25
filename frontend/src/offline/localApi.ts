@@ -17,6 +17,7 @@ import {
 import { db, getMeta, setMeta, type OutboxOp, type StoredAct } from './db';
 import { loadRefs, organizations, parts } from './refs';
 import { uuidv7 } from './uuid';
+import { currentUsername } from './user';
 
 /** Ответ «локального сервера» в той же форме, что у сгенерированного клиента. */
 export interface LocalResponse {
@@ -87,7 +88,10 @@ export async function localGet(path: string, params: URLSearchParams): Promise<L
   if (path === '/api/v1/acts') {
     const q = params.get('q');
     const statuses = params.getAll('status');
+    const meId = (await loadRefs()).me?.id;
+    const mine = params.get('mine') === 'true';
     const list = (await db.acts.toArray())
+      .filter((s) => !mine || s.detail.engineers.some((e) => e.engineerId === meId) || s.localOnly)
       .filter((s) => !statuses.length || statuses.includes(s.detail.status))
       .filter((s) =>
         contains(
@@ -267,5 +271,6 @@ async function enqueue(actId: string, method: OutboxOp['method'], url: string, b
     createdAt: Date.now(),
     status: 'pending',
     attempts: 0,
+    user: currentUsername(),
   });
 }

@@ -1,5 +1,6 @@
 import { SyncIndicator } from '../offline/SyncIndicator';
-import { clearLocalData, db } from '../offline/db';
+import { db } from '../offline/db';
+import { currentUsername } from '../offline/user';
 import { useMemo, useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { App, Button, Drawer, Grid, Layout, Menu, Space, Tag, Tooltip, Typography } from 'antd';
@@ -29,19 +30,22 @@ function Nameplate() {
 export function AppLayout({ themeMode, onToggleTheme }: Props) {
   const auth = useAuth();
   const { modal } = App.useApp();
-  /** Выход очищает локальную базу; с неотправленными данными — только после подтверждения (раздел 17.7). */
+  /**
+   * Данные принадлежат ПК (решение 19.11): при выходе справочники и акты остаются. Неотправленные изменения
+   * пользователя тоже остаются и уйдут при его следующем входе — предупреждаем об этом.
+   */
   const logout = async () => {
-    const pending = await db.outbox.count().catch(() => 0);
-    const leave = async () => {
-      await clearLocalData().catch(() => undefined);
-      await auth.signoutRedirect();
-    };
+    const user = currentUsername();
+    const pending = await db.outbox
+      .filter((o) => !o.user || o.user === user)
+      .count()
+      .catch(() => 0);
+    const leave = () => auth.signoutRedirect();
     if (pending === 0) return leave();
     modal.confirm({
       title: 'Есть неотправленные изменения',
-      content: `На устройстве ${pending} неотправленных изменений. После выхода они будут удалены. Сначала синхронизируйтесь, когда появится связь.`,
-      okText: 'Всё равно выйти',
-      okButtonProps: { danger: true },
+      content: `На ПК ${pending} ваших неотправленных изменений. Они сохранятся и будут отправлены, когда вы снова войдёте при наличии связи.`,
+      okText: 'Выйти',
       cancelText: 'Остаться',
       onOk: leave,
     });

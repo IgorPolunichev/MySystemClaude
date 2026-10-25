@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { DeviceSettings } from './DeviceSettings';
 import { App, Badge, Button, Drawer, Empty, List, Space, Tag, Tooltip, Typography } from 'antd';
-import { CloudOutlined, DisconnectOutlined, SyncOutlined } from '@ant-design/icons';
+import { CloudOutlined, DesktopOutlined, DisconnectOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { db, type OutboxOp } from './db';
 import { useNetwork } from './network';
@@ -11,6 +12,7 @@ const time = new Intl.DateTimeFormat('ru-RU', { dateStyle: 'short', timeStyle: '
 /** Журнал синхронизации: что ждёт отправки, конфликты и отклонённые изменения (раздел 17.7). */
 function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [ops, setOps] = useState<OutboxOp[]>([]);
+  const [settings, setSettings] = useState(false);
   const state = useNetwork();
   useEffect(() => {
     if (!open) return;
@@ -45,6 +47,9 @@ function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) 
           {state.online
             ? 'Синхронизировать сейчас (и обновить справочники)'
             : 'Проверить связь и синхронизировать'}
+        </Button>
+        <Button icon={<DesktopOutlined />} onClick={() => setSettings(true)}>
+          Настройки этого ПК
         </Button>
         {ops.length === 0 ? (
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Все изменения отправлены" />
@@ -84,6 +89,7 @@ function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) 
                       {op.status === 'pending' && <Tag>ждёт отправки</Tag>}
                       {op.status === 'conflict' && <Tag color="orange">конфликт</Tag>}
                       {op.status === 'rejected' && <Tag color="red">отклонено сервером</Tag>}
+                      {op.user && <Tag>{op.user}</Tag>}
                     </Space>
                   }
                   description={
@@ -103,6 +109,7 @@ function SyncJournal({ open, onClose }: { open: boolean; onClose: () => void }) 
           (например, акт закрыли) сохраняются здесь, пока вы их не уберёте.
         </Typography.Paragraph>
       </Space>
+      <DeviceSettings open={settings} onClose={() => setSettings(false)} />
     </Drawer>
   );
 }
@@ -122,8 +129,19 @@ export function SyncIndicator() {
         message: 'Акт получил номер',
         description: (e as CustomEvent<{ number: string }>).detail.number,
       });
+    const onStorage = (e: Event) => {
+      const d = (e as CustomEvent<{ usedMb: number; quotaMb: number }>).detail;
+      notification.warning({
+        message: 'На ПК заканчивается место',
+        description: `Занято ${d.usedMb} МБ из ${d.quotaMb} МБ. Синхронизируйтесь и очистите старые данные.`,
+      });
+    };
     window.addEventListener('acts:numbered', onNumbered);
-    return () => window.removeEventListener('acts:numbered', onNumbered);
+    window.addEventListener('acts:storage-low', onStorage);
+    return () => {
+      window.removeEventListener('acts:numbered', onNumbered);
+      window.removeEventListener('acts:storage-low', onStorage);
+    };
   }, [notification]);
 
   useEffect(() => {

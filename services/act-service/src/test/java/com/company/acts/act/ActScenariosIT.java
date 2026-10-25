@@ -496,6 +496,12 @@ class ActScenariosIT extends PostgresIntegrationTest {
         ActDetail foreign = acts.create(new ActCreateCommand(null, UUID.randomUUID()));
         login(me);
         assertThat(acts.forDevice(90)).extracting(ActDetail::id).contains(mine.id()).doesNotContain(foreign.id());
+        // ПК площадки: чужие открытые акты этой площадки выгружаются, чужие черновики — нет
+        login(other);
+        ActDetail foreignOpen = acts.open(acts.create(new ActCreateCommand(null, UUID.randomUUID())).id());
+        login(me);
+        assertThat(acts.forDevice(90, List.of(FakeDirectory.SITE_A), List.of())).extracting(ActDetail::id)
+                .contains(mine.id(), foreignOpen.id()).doesNotContain(foreign.id());
         // повтор создания с тем же id (повторная отправка из очереди устройства) не создаёт дубль
         UUID clientId = UUID.randomUUID();
         ActDetail first = acts.create(new ActCreateCommand(clientId, UUID.randomUUID()));

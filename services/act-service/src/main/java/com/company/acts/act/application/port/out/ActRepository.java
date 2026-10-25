@@ -24,7 +24,8 @@ public interface ActRepository {
      * Акты пользователя для офлайн-работы (раздел 17.3 SPEC.md): где он участник — черновики и открытые акты
      * целиком плюс любые изменённые после указанного момента; не больше limit, новые первыми.
      */
-    List<UUID> idsForDevice(String userId, Instant changedSince, int limit);
+    List<UUID> idsForDevice(String userId, java.util.Collection<UUID> siteIds,
+                            java.util.Collection<UUID> organizationIds, Instant changedSince, int limit);
 
     /** Физическое удаление акта вместе со всем содержимым. */
     void delete(UUID id);

@@ -2,6 +2,8 @@ import type { ActDetail } from '../api/generated/acts/model';
 import { getAccessToken } from '../app/auth/tokenStore';
 import { db, getMeta, setMeta, type OutboxOp } from './db';
 import { network } from './network';
+import { getDeviceScope } from './db';
+import { currentUsername } from './user';
 
 /**
  * Синхронизация (раздел 17 SPEC.md):
@@ -48,7 +50,11 @@ export async function refreshQueueState(): Promise<void> {
 async function push(): Promise<boolean> {
   const blocked = new Set((await db.outbox.where('status').equals('conflict').toArray()).map((o) => o.actId));
   const versions = new Map<string, number>();
-  const ops = await db.outbox.where('status').equals('pending').sortBy('seq');
+  const user = currentUsername();
+  // Операции другого пользователя этого ПК ждут его входа: сервер проверяет права автора.
+  const ops = (await db.outbox.where('status').equals('pending').sortBy('seq')).filter(
+    (o) => !o.user || o.user === user,
+  );
   for (const op of ops) {
     if (blocked.has(op.actId)) continue;
     let body = op.body;
@@ -121,7 +127,13 @@ async function pages<T>(url: string): Promise<T[]> {
 
 /** Загрузить на устройство мои акты; справочники — раз в сутки или принудительно. */
 async function pull(forceRefs: boolean): Promise<void> {
-  const r = await call('GET', '/api/v1/acts/device?days=90');
+  const scope = await getDeviceScope();
+  const query = [
+    'days=90',
+    ...scope.siteIds.map((id) => `siteId=${id}`),
+    ...(scope.siteIds.length ? [] : scope.organizationIds.map((id) => `organizationId=${id}`)),
+  ].join('&');
+  const r = await call('GET', `/api/v1/acts/device?${query}`);
   if (r.status === 200 && Array.isArray(r.data)) {
     const server = r.data as ActDetail[];
     const pendingActs = new Set((await db.outbox.toArray()).map((o) => o.actId));
@@ -169,7 +181,7 @@ async function pull(forceRefs: boolean): Promise<void> {
     { key: 'executors', data: executors.status === 200 ? executors.data : [], savedAt: now },
     { key: 'units', data: units.status === 200 ? units.data : [], savedAt: now },
     { key: 'sites', data: sites, savedAt: now },
-    ...(me.status === 200 ? [{ key: 'me', data: me.data, savedAt: now }] : []),
+    ...(me.status === 200 ? [{ key: `me:${currentUsername() ?? ''}`, data: me.data, savedAt: now }] : []),
   ]);
   await setMeta('refsAt', now);
 }
@@ -194,6 +206,17 @@ export function syncNow(forceRefs = false): Promise<void> {
     }
   })();
   return running;
+}
+
+/** Предупреждение, когда на ПК заканчивается место для данных приложения (раздел 17.2). */
+export async function checkStorage(): Promise<{ usedMb: number; quotaMb: number; low: boolean } | undefined> {
+  const estimate = await navigator.storage?.estimate?.();
+  if (!estimate?.quota) return undefined;
+  const usedMb = Math.round((estimate.usage ?? 0) / 1024 / 1024);
+  const quotaMb = Math.round(estimate.quota / 1024 / 1024);
+  const low = (estimate.usage ?? 0) / estimate.quota > 0.85;
+  if (low) window.dispatchEvent(new CustomEvent('acts:storage-low', { detail: { usedMb, quotaMb } }));
+  return { usedMb, quotaMb, low };
 }
 
 /** Конфликт: «оставить моё» — отправить снова от текущей серверной версии; «оставить серверное» — отбросить. */
@@ -226,6 +249,7 @@ export function startSync(): void {
   if (started || typeof window === 'undefined') return;
   started = true;
   void navigator.storage?.persist?.();
+  void checkStorage();
   window.addEventListener('online', () => void syncNow());
   // Со связью — раз в 2 минуты; без связи — каждые 15 секунд проверяем, не появилась ли она.
   let last = Date.now();

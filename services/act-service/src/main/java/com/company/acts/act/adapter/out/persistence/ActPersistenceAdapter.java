@@ -308,14 +308,26 @@ class ActPersistenceAdapter implements ActRepository, ActNumberGenerator {
         return ActNumberFormat.format(numberPrefix, siteCode, year, value == null ? 1 : value);
     }
 
+    /**
+     * Акты для ПК (раздел 17.3 SPEC.md, решение 19.11): мои акты плюс акты выбранных площадок и заказчиков.
+     * Чужие черновики не выгружаются. Открытые — всегда, остальные — изменённые после changedSince.
+     */
     @Override
-    public List<UUID> idsForDevice(String userId, Instant changedSince, int limit) {
-        return jdbc.query("""
+    public List<UUID> idsForDevice(String userId, java.util.Collection<UUID> siteIds,
+                                   java.util.Collection<UUID> organizationIds, Instant changedSince, int limit) {
+        MapSqlParameterSource p = new MapSqlParameterSource()
+                .addValue("user", userId)
+                .addValue("since", java.sql.Timestamp.from(changedSince))
+                .addValue("limit", limit)
+                .addValue("sites", siteIds.isEmpty() ? List.of(new UUID(0, 0)) : siteIds)
+                .addValue("orgs", organizationIds.isEmpty() ? List.of(new UUID(0, 0)) : organizationIds);
+        return jdbc().query("""
                 select w.id from work_act w
-                where exists (select 1 from act_participant p where p.act_id = w.id and p.keycloak_user_id = ?)
-                  and (w.status in ('DRAFT', 'OPEN') or w.updated_at >= ?)
-                order by w.updated_at desc limit ?
-                """, (rs, n) -> rs.getObject("id", UUID.class), userId, java.sql.Timestamp.from(changedSince), limit);
+                where (exists (select 1 from act_participant p where p.act_id = w.id and p.keycloak_user_id = :user)
+                       or (w.status <> 'DRAFT' and (w.site_id in (:sites) or w.org_id in (:orgs))))
+                  and (w.status in ('DRAFT', 'OPEN') or w.updated_at >= :since)
+                order by w.updated_at desc limit :limit
+                """, p, (rs, n) -> rs.getObject("id", UUID.class));
     }
 
     @Override

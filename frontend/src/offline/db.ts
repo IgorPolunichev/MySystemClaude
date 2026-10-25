@@ -25,6 +25,8 @@ export interface OutboxOp {
   label: string;
   createdAt: number;
   status: 'pending' | 'conflict' | 'rejected';
+  /** Автор операции: отправляется только от его имени (на ПК могут работать несколько человек). */
+  user?: string;
   error?: string;
   attempts: number;
 }
@@ -66,7 +68,17 @@ export async function getRef<T>(key: string): Promise<T | undefined> {
   return (await db.refs.get(key))?.data as T | undefined;
 }
 
-/** Выход из учётной записи очищает локальную базу (раздел 17.8). */
+/** Привязка ПК к заказчикам и площадкам: их акты хранятся на ПК (решение 19.11 SPEC.md). */
+export interface DeviceScope {
+  organizationIds: string[];
+  siteIds: string[];
+}
+
+export async function getDeviceScope(): Promise<DeviceScope> {
+  return (await getMeta<DeviceScope>('deviceScope')) ?? { organizationIds: [], siteIds: [] };
+}
+
+/** Полная очистка данных на ПК — только по явной команде (данные принадлежат ПК, а не пользователю). */
 export async function clearLocalData(): Promise<void> {
   await Promise.all([db.acts.clear(), db.outbox.clear(), db.refs.clear(), db.meta.clear()]);
 }

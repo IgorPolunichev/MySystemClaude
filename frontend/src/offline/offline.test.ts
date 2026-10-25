@@ -189,4 +189,32 @@ describe('офлайн: акт без связи → очередь → синх
     expect((await db.acts.get(id))?.detail.status).toBe('OPEN');
     expect(await db.outbox.count()).toBe(0);
   });
+
+  it('операции другого пользователя ПК ждут его входа', async () => {
+    await db.outbox.add({
+      opId: 'x1',
+      actId: 'a-other',
+      method: 'PUT',
+      url: '/api/v1/acts/a-other/time/e2/2026-10-05',
+      body: { startTime: '08:00', endTime: '12:00' },
+      label: 'Время',
+      createdAt: Date.now(),
+      status: 'pending',
+      attempts: 0,
+      user: 'colleague',
+    });
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        calls.push(url);
+        return new Response('[]', { status: 200 });
+      }),
+    );
+    network.setOnline(true);
+    const { syncNow } = await import('./sync');
+    await syncNow();
+    expect(calls.some((u) => u.includes('a-other'))).toBe(false);
+    expect(await db.outbox.count()).toBe(1);
+  });
 });
