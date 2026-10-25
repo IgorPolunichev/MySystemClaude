@@ -19,6 +19,12 @@ public interface EquipmentRepository {
 
     Optional<Equipment> findByGarageNumber(UUID organizationId, String garageNumber);
 
+    /** VIN / серийный номер уникален во всей системе (раздел 19.16 SPEC.md). */
+    Optional<Equipment> findBySerialAnywhere(String serialNumber);
+
+    /** Гаражный номер уникален на площадке; у техники без площадки — в организации. */
+    Optional<Equipment> findByGarageAtSite(UUID organizationId, UUID siteId, String garageNumber);
+
     Optional<Equipment> findByPlateNumber(UUID organizationId, String plateNumber);
 
     PageResult<EquipmentView> search(String text, UUID organizationId, Collection<UUID> departmentIds,

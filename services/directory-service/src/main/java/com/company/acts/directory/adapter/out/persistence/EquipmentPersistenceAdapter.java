@@ -73,6 +73,21 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
     }
 
     @Override
+    public Optional<Equipment> findBySerialAnywhere(String serialNumber) {
+        return repository.findFirstBySerialNumberIgnoreCaseAndDeletedAtIsNull(serialNumber)
+                .map(EquipmentPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    public Optional<Equipment> findByGarageAtSite(UUID organizationId, UUID siteId, String garageNumber) {
+        return (siteId != null
+                ? repository.findFirstBySiteIdAndGarageNumberIgnoreCaseAndDeletedAtIsNull(siteId, garageNumber)
+                : repository.findFirstByOrganizationIdAndSiteIdIsNullAndGarageNumberIgnoreCaseAndDeletedAtIsNull(
+                        organizationId, garageNumber))
+                .map(EquipmentPersistenceAdapter::toDomain);
+    }
+
+    @Override
     public Optional<Equipment> findByPlateNumber(UUID organizationId, String plateNumber) {
         return repository.findFirstByOrganizationIdAndPlateNumberAndDeletedAtIsNull(organizationId, plateNumber)
                 .map(EquipmentPersistenceAdapter::toDomain);

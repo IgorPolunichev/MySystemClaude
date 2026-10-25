@@ -42,6 +42,8 @@ import { filesGoLocal } from '../../offline/gateway';
 import { ok } from '../../api/unwrap';
 import { errorText } from '../../shared/lib/apiErrors';
 import { useMediaUrl } from '../../shared/lib/useMediaBlob';
+import { PhotoStaging } from './PhotoStaging';
+import { release, stage, type StagedPhoto } from './stagedPhotos';
 
 const MAX_CAPTION = 200;
 
@@ -172,6 +174,7 @@ export function PhotosSection({ act }: { act: ActDetail }) {
   const [queue, setQueue] = useState<{ done: number; total: number } | null>(null);
   const [viewing, setViewing] = useState<ActPhoto | null>(null);
   const [order, setOrder] = useState<string[] | null>(null);
+  const [staged, setStaged] = useState<StagedPhoto[] | null>(null);
   const editable = act.permissions.canEdit;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -184,10 +187,18 @@ export function PhotosSection({ act }: { act: ActDetail }) {
 
   const refresh = () => client.invalidateQueries({ queryKey: getGetActQueryKey(act.id) });
 
-  const uploadAll = async (files: File[]) => {
-    const images = files.filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name),
-    );
+  const isImage = (f: File) => f.type.startsWith('image/') || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name);
+
+  /** Несколько фото — сначала окно «Новые фото» для порядка и подписей; одно фото добавляется сразу. */
+  const pick = (files: File[]) => {
+    const images = files.filter(isImage);
+    if (images.length > 1) setStaged(stage(images));
+    else if (images.length === 1) void uploadAll([{ file: images[0], caption: null }]);
+  };
+
+  const uploadAll = async (items: { file: File; caption: string | null }[]) => {
+    const images = items.map((i) => i.file);
+    const captions = items.map((i) => i.caption?.trim() || null);
     if (!images.length) return;
     setQueue({ done: 0, total: images.length });
     let failed = 0;
@@ -197,16 +208,16 @@ export function PhotosSection({ act }: { act: ActDetail }) {
         const file = await prepare(images[i]);
         // Без связи (или пока у акта есть неотправленные изменения) фото сохраняется на ПК и уйдёт при синхронизации.
         if (await filesGoLocal(act.id)) {
-          await queueLocalPhoto(act.id, file, images[i].name, null);
+          await queueLocalPhoto(act.id, file, images[i].name, captions[i]);
           onPc++;
         } else {
           try {
             const media = ok(await uploadMedia({ file, ownerType: 'ACT_PHOTO', ownerId: act.id }))!;
-            await add.mutateAsync({ id: act.id, data: { mediaId: media.id, caption: null } });
+            await add.mutateAsync({ id: act.id, data: { mediaId: media.id, caption: captions[i] } });
           } catch (e) {
             const unreachable = !(e instanceof ApiError) || e.status === 0 || e.status >= 502;
             if (!unreachable) throw e;
-            await queueLocalPhoto(act.id, file, images[i].name, null);
+            await queueLocalPhoto(act.id, file, images[i].name, captions[i]);
             onPc++;
           }
         }
@@ -265,7 +276,7 @@ export function PhotosSection({ act }: { act: ActDetail }) {
             showUploadList={false}
             disabled={!!queue}
             beforeUpload={(_file, list) => {
-              if (_file === list[0]) void uploadAll(list as unknown as File[]);
+              if (_file === list[0]) pick(list as unknown as File[]);
               return false;
             }}
           >
@@ -274,7 +285,8 @@ export function PhotosSection({ act }: { act: ActDetail }) {
             </p>
             <p className="ant-upload-text">Перетащите фото сюда или нажмите, чтобы выбрать</p>
             <p className="ant-upload-hint">
-              Можно несколько сразу. Фото уменьшаются до 2560 px перед отправкой, геоданные удаляются
+              Можно несколько сразу — перед добавлением их можно расставить по порядку и подписать. Фото
+              уменьшаются до 2560 px, геоданные удаляются
             </p>
           </Upload.Dragger>
           <Upload
@@ -283,7 +295,7 @@ export function PhotosSection({ act }: { act: ActDetail }) {
             showUploadList={false}
             disabled={!!queue}
             beforeUpload={(file) => {
-              void uploadAll([file as unknown as File]);
+              pick([file as unknown as File]);
               return false;
             }}
           >
@@ -336,6 +348,23 @@ export function PhotosSection({ act }: { act: ActDetail }) {
         6 на лист.
       </Typography.Paragraph>
       {viewing && <PhotoViewer photo={viewing} onClose={() => setViewing(null)} />}
+      {staged && (
+        <PhotoStaging
+          items={staged}
+          startNumber={act.photos.length + 1}
+          onChange={setStaged}
+          onCancel={() => {
+            release(staged);
+            setStaged(null);
+          }}
+          onConfirm={(items) => {
+            setStaged(null);
+            void uploadAll(items.map((x) => ({ file: x.file, caption: x.caption }))).finally(() =>
+              release(items),
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

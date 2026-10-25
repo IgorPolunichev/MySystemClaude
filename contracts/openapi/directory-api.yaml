@@ -481,6 +481,48 @@ paths:
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
+  /api/v1/equipment/duplicates:
+    get:
+      operationId: findEquipmentDuplicates
+      tags:
+      - equipment
+      summary: 'Проверка до сохранения: тот же VIN или гаражный номер'
+      parameters:
+      - name: serialNumber
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: garageNumber
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: organizationId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: siteId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: excludeId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipmentDuplicates'
   /api/v1/equipment/{id}:
     get:
       operationId: getEquipment
@@ -2103,3 +2145,16 @@ components:
           - 'null'
           maxLength: 6
           pattern: ^[\p{L}\p{Nd}]{1,6}$
+    EquipmentDuplicates:
+      type: object
+      properties:
+        bySerial:
+          oneOf:
+          - $ref: '#/components/schemas/Equipment'
+          - type: 'null'
+          description: Техника с тем же VIN — во всей системе
+        byGarage:
+          oneOf:
+          - $ref: '#/components/schemas/Equipment'
+          - type: 'null'
+          description: Техника с тем же гаражным номером на площадке (или в организации без площадки)

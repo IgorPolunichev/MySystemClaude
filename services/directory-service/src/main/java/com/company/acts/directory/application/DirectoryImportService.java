@@ -146,7 +146,8 @@ public class DirectoryImportService {
                         : Strings.normalizeCode(row.text("plateNumber").replace(" ", ""));
                 Optional<Equipment> existing = Optional.<Equipment>empty();
                 if (serial != null) {
-                    existing = equipment.findBySerial(organization.id(), serial);
+                    // VIN уникален во всей системе: найденная машина переходит к организации из файла.
+                    existing = equipment.findBySerialAnywhere(serial);
                 } else if (garage != null) {
                     existing = equipment.findByGarageNumber(organization.id(), garage);
                 } else if (plate != null) {

@@ -55,6 +55,16 @@ class EquipmentController {
         return equipment.create(command);
     }
 
+    /** Проверка до сохранения: техника с тем же VIN (везде) или гаражным номером (на площадке). */
+    @GetMapping("/duplicates")
+    EquipmentService.Duplicates duplicates(@RequestParam(required = false) String serialNumber,
+                                           @RequestParam(required = false) String garageNumber,
+                                           @RequestParam(required = false) UUID organizationId,
+                                           @RequestParam(required = false) UUID siteId,
+                                           @RequestParam(required = false) UUID excludeId) {
+        return equipment.duplicates(serialNumber, garageNumber, organizationId, siteId, excludeId);
+    }
+
     @GetMapping("/{id}")
     EquipmentView get(@PathVariable UUID id) {
         return equipment.get(id);

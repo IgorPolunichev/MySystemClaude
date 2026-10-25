@@ -139,13 +139,40 @@ public class EquipmentService {
             }
         }
         if (item.serialNumber() != null) {
-            equipment.findBySerial(item.organizationId(), item.serialNumber())
+            equipment.findBySerialAnywhere(item.serialNumber())
                     .filter(other -> !other.id().equals(item.id()))
                     .ifPresent(other -> {
-                        throw new ConflictException("У этой организации уже есть техника с серийным номером "
-                                + item.serialNumber() + ": " + other.brand() + " " + other.model());
+                        throw new ConflictException("Техника с VIN / серийным номером " + item.serialNumber()
+                                + " уже есть: " + other.brand() + " " + other.model()
+                                + " — измените принадлежность существующей машины, а не создавайте новую");
                     });
         }
+        if (item.garageNumber() != null) {
+            equipment.findByGarageAtSite(item.organizationId(), item.siteId(), item.garageNumber())
+                    .filter(other -> !other.id().equals(item.id()))
+                    .ifPresent(other -> {
+                        throw new ConflictException("Гаражный номер " + item.garageNumber() + " уже занят на "
+                                + (item.siteId() != null ? "этой площадке" : "технике этой организации без площадки")
+                                + ": " + other.brand() + " " + other.model());
+                    });
+        }
+    }
+
+    /** Совпадения до сохранения: по VIN — во всей системе, по гаражному номеру — на площадке. */
+    public record Duplicates(EquipmentView bySerial, EquipmentView byGarage) {
+    }
+
+    @Transactional(readOnly = true)
+    public Duplicates duplicates(String serialNumber, String garageNumber, UUID organizationId, UUID siteId,
+                                 UUID excludeId) {
+        String serial = com.company.acts.common.core.Strings.normalizeCode(serialNumber);
+        String garage = com.company.acts.common.core.Strings.normalizeCode(garageNumber);
+        EquipmentView bySerial = serial == null ? null : equipment.findBySerialAnywhere(serial)
+                .filter(e -> !e.id().equals(excludeId)).flatMap(e -> equipment.findViewById(e.id())).orElse(null);
+        EquipmentView byGarage = garage == null || organizationId == null ? null
+                : equipment.findByGarageAtSite(organizationId, siteId, garage)
+                .filter(e -> !e.id().equals(excludeId)).flatMap(e -> equipment.findViewById(e.id())).orElse(null);
+        return new Duplicates(bySerial, byGarage);
     }
 
     static Equipment toDomain(UUID id, Long version, EquipmentCommand c) {

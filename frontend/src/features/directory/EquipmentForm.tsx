@@ -1,9 +1,14 @@
 import { useEffect } from 'react';
 import { App, Button, Col, Drawer, Form, Input, InputNumber, Radio, Row, Space } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCreateEquipment, useUpdateEquipment } from '../../api/generated/directory/equipment';
+import {
+  findEquipmentDuplicates,
+  useCreateEquipment,
+  useUpdateEquipment,
+} from '../../api/generated/directory/equipment';
 import type { Equipment, EquipmentInput } from '../../api/generated/directory/model';
-import { applyFormError } from '../../shared/lib/apiErrors';
+import { applyFormError, errorText } from '../../shared/lib/apiErrors';
+import { ok } from '../../api/unwrap';
 import { invalidateByPrefix } from '../../shared/lib/invalidate';
 import { emptyToNull } from '../../shared/lib/table';
 import { DepartmentSelect, EquipmentTypeSelect, OrganizationSelect, SiteSelect } from './lookups';
@@ -19,7 +24,7 @@ interface Props {
 /** Создание и изменение единицы техники. */
 export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
   const [form] = Form.useForm<EquipmentInput>();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const client = useQueryClient();
   const create = useCreateEquipment();
   const update = useUpdateEquipment();
@@ -33,16 +38,82 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
     }
   }, [open, equipment, defaults, form]);
 
+  const title = (e: Equipment) =>
+    `${e.brand} ${e.model}${e.garageNumber ? `, гар. № ${e.garageNumber}` : ''} — ${e.organizationName}` +
+    `${e.departmentName ? ` / ${e.departmentName}` : ''}${e.siteName ? ` / ${e.siteName}` : ''}`;
+
+  const save = async (data: EquipmentInput) => {
+    if (equipment) await update.mutateAsync({ id: equipment.id, data });
+    else await create.mutateAsync({ data });
+    await invalidateByPrefix(client, '/api/v1/equipment');
+    message.success(equipment ? 'Техника сохранена' : 'Техника добавлена');
+    onClose();
+  };
+
+  /** Перенести найденную по VIN машину в выбранные организацию, подразделение и площадку. */
+  const transfer = async (found: Equipment, data: EquipmentInput) => {
+    await update.mutateAsync({
+      id: found.id,
+      data: {
+        ...found,
+        version: found.version,
+        organizationId: data.organizationId,
+        departmentId: data.departmentId ?? null,
+        siteId: data.siteId ?? null,
+        garageNumber: data.garageNumber ?? found.garageNumber ?? null,
+        plateNumber: data.plateNumber ?? found.plateNumber ?? null,
+      } as EquipmentInput,
+    });
+    await invalidateByPrefix(client, '/api/v1/equipment');
+    message.success('Принадлежность техники изменена');
+    onClose();
+  };
+
+  /**
+   * Перед сохранением — проверка совпадений (раздел 19.16 SPEC.md): VIN уникален во всей системе — если машина уже
+   * есть, предлагаем изменить её принадлежность; гаражный номер уникален на площадке.
+   */
   const submit = async (values: EquipmentInput) => {
     const data = emptyToNull({ ...values, version: equipment?.version });
     if (data.meterType === 'KM') data.currentHours = null;
     if (data.meterType === 'HOURS') data.currentKm = null;
     try {
-      if (equipment) await update.mutateAsync({ id: equipment.id, data });
-      else await create.mutateAsync({ data });
-      await invalidateByPrefix(client, '/api/v1/equipment');
-      message.success(equipment ? 'Техника сохранена' : 'Техника добавлена');
-      onClose();
+      const found = ok(
+        await findEquipmentDuplicates({
+          serialNumber: data.serialNumber ?? undefined,
+          garageNumber: data.garageNumber ?? undefined,
+          organizationId: data.organizationId,
+          siteId: data.siteId ?? undefined,
+          excludeId: equipment?.id,
+        }),
+      );
+      if (found?.bySerial) {
+        const existing = found.bySerial;
+        if (equipment) {
+          form.setFields([
+            { name: 'serialNumber', errors: [`Этот VIN уже у другой техники: ${title(existing)}`] },
+          ]);
+          return;
+        }
+        modal.confirm({
+          title: 'Такая техника уже есть',
+          content: `${title(existing)}. VIN ${existing.serialNumber}. Перенести её в выбранные организацию, подразделение и площадку вместо создания новой?`,
+          okText: 'Перенести',
+          cancelText: 'Отмена',
+          onOk: () => transfer(existing, data).catch((e) => message.error(errorText(e))),
+        });
+        return;
+      }
+      if (found?.byGarage) {
+        form.setFields([
+          {
+            name: 'garageNumber',
+            errors: [`Гаражный номер уже занят на этой площадке: ${title(found.byGarage)}`],
+          },
+        ]);
+        return;
+      }
+      await save(data);
     } catch (e) {
       message.error(applyFormError(form, e));
     }

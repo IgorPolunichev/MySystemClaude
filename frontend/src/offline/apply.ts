@@ -121,7 +121,8 @@ export function createLocalAct(
     missingForClose: [],
     permissions: {
       canEdit: true,
-      canEditAnyTime: false,
+      // Автор черновика вносит время за всех инженеров акта — как на сервере.
+      canEditAnyTime: true,
       canOpen: !!eq,
       canClose: false,
       canReopen: false,
