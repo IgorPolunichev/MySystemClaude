@@ -11,6 +11,6 @@ import type { Equipment } from './equipment';
 export interface EquipmentDuplicates {
   /** Техника с тем же VIN — во всей системе */
   bySerial?: Equipment | null;
-  /** Техника с тем же гаражным номером на площадке (или в организации без площадки) */
+  /** Техника с тем же гаражным номером в подразделении (или в организации без подразделения) */
   byGarage?: Equipment | null;
 }

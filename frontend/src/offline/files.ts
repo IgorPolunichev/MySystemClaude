@@ -74,9 +74,14 @@ export async function queueLocalPhoto(
   const localMediaId = `${LOCAL_PREFIX}${uuidv7()}`;
   const photoId = `local-photo:${uuidv7()}`;
   const now = Date.now();
-  await db.files.put({ key: `${localMediaId}:original`, blob: file, savedAt: now });
-  const thumb = await thumbnail(file);
-  await db.files.put({ key: `${localMediaId}:thumbnail`, blob: thumb ?? file, savedAt: now });
+  // Сначала превью = само фото (оно уже сжато), чтобы фото сразу появилось в акте; маленькое превью — в фоне.
+  await db.files.bulkPut([
+    { key: `${localMediaId}:original`, blob: file, savedAt: now },
+    { key: `${localMediaId}:thumbnail`, blob: file, savedAt: now },
+  ]);
+  void thumbnail(file).then((thumb) => {
+    if (thumb) void db.files.put({ key: `${localMediaId}:thumbnail`, blob: thumb, savedAt: Date.now() });
+  });
   let photo: ActPhoto | undefined;
   await updateAct(actId, (a) => {
     photo = { id: photoId, mediaId: localMediaId, caption, position: a.photos.length + 1 };

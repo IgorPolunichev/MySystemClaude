@@ -4,8 +4,30 @@ import type { LocalRefs } from './apply';
 import { getRef } from './db';
 import { currentUsername } from './user';
 
-/** Справочники с устройства — для применения изменений и ответов экранам без связи. */
-export async function loadRefs(): Promise<LocalRefs> {
+let cache: { user: string | undefined; refs: Promise<LocalRefs> } | null = null;
+
+/** Сбросить кэш справочников в памяти — после загрузки новых справочников при синхронизации. */
+export function invalidateRefs(): void {
+  cache = null;
+}
+
+/**
+ * Справочники с ПК — для применения изменений и ответов экранам без связи. Читаются с диска один раз и держатся в
+ * памяти (раньше каждое изменение акта перечитывало всю технику и каталог — это давало задержки).
+ */
+export function loadRefs(): Promise<LocalRefs> {
+  const user = currentUsername();
+  if (!cache || cache.user !== user) {
+    const refs = readRefs();
+    cache = { user, refs };
+    refs.catch(() => {
+      cache = null;
+    });
+  }
+  return cache.refs;
+}
+
+async function readRefs(): Promise<LocalRefs> {
   const [equipment, engineers, executors, units, sites, me] = await Promise.all([
     getRef<Equipment[]>('equipment'),
     getRef<Engineer[]>('engineers'),
@@ -24,10 +46,22 @@ export async function loadRefs(): Promise<LocalRefs> {
   };
 }
 
-export async function organizations(): Promise<Organization[]> {
-  return (await getRef<Organization[]>('organizations')) ?? [];
+let organizationsCache: Promise<Organization[]> | null = null;
+let partsCache: Promise<Part[]> | null = null;
+
+export function organizations(): Promise<Organization[]> {
+  organizationsCache ??= getRef<Organization[]>('organizations').then((v) => v ?? []);
+  return organizationsCache;
 }
 
-export async function parts(): Promise<Part[]> {
-  return (await getRef<Part[]>('parts')) ?? [];
+export function parts(): Promise<Part[]> {
+  partsCache ??= getRef<Part[]>('parts').then((v) => v ?? []);
+  return partsCache;
+}
+
+/** Сбросить и остальные кэши — после синхронизации справочников. */
+export function invalidateAllRefs(): void {
+  invalidateRefs();
+  organizationsCache = null;
+  partsCache = null;
 }

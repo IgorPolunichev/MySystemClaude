@@ -13,7 +13,7 @@ import type { ActDetail, ActParticipant, ActTimeEntry, TimeEntryInput } from '..
 import { ok } from '../../api/unwrap';
 import { errorText } from '../../shared/lib/apiErrors';
 import { invalidateByPrefix } from '../../shared/lib/invalidate';
-import { addDays, formatHours, isoDate, weekStart } from './actMeta';
+import { addDays, formatHours, isoDate } from './actMeta';
 import { EngineerSelect } from './lookups';
 import { TimeEntryDialog } from './TimeEntryDialog';
 import { formatDuration } from './workTime';
@@ -27,6 +27,12 @@ const num = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
  * Табель «инженер × день» по неделям. В ячейке — интервал работы и рассчитанное продуктивное время;
  * по клику открывается ввод интервала и перерывов. Каждая ячейка сохраняется отдельным запросом.
  */
+/** Сегодня, 00:00 по местному времени. */
+function todayDate(): Date {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
 export function Timesheet({ act }: { act: ActDetail }) {
   const { message } = App.useApp();
   const client = useQueryClient();
@@ -36,9 +42,10 @@ export function Timesheet({ act }: { act: ActDetail }) {
   const removeEngineer = useRemoveActEngineer();
   const [newEngineer, setNewEngineer] = useState<string>();
   const [editing, setEditing] = useState<{ participant: ActParticipant; date: Date } | null>(null);
-  const [week, setWeek] = useState(() =>
-    weekStart(act.workStartDate ? new Date(`${act.workStartDate}T00:00:00`) : new Date()),
-  );
+  // Табель показывает 7 дней начиная с даты начала работ (а не с понедельника): пустые дни до начала работ
+  // к акту не относятся. У акта без времени — с сегодняшнего дня.
+  const startOfWork = () => (act.workStartDate ? new Date(`${act.workStartDate}T00:00:00`) : todayDate());
+  const [week, setWeek] = useState(startOfWork);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
   const entries = useMemo(() => {
@@ -124,7 +131,7 @@ export function Timesheet({ act }: { act: ActDetail }) {
           size="small"
           icon={<LeftOutlined />}
           onClick={() => setWeek(addDays(week, -7))}
-          aria-label="Предыдущая неделя"
+          aria-label="Предыдущие 7 дней"
         />
         <span className="week-title">
           {dm.format(days[0])} — {dm.format(days[6])}.{days[6].getFullYear()}
@@ -133,20 +140,16 @@ export function Timesheet({ act }: { act: ActDetail }) {
           size="small"
           icon={<RightOutlined />}
           onClick={() => setWeek(addDays(week, 7))}
-          aria-label="Следующая неделя"
+          aria-label="Следующие 7 дней"
         />
-        <Button size="small" type="link" onClick={() => setWeek(weekStart(new Date()))}>
-          Текущая неделя
-        </Button>
         {act.workStartDate && (
-          <Button
-            size="small"
-            type="link"
-            onClick={() => setWeek(weekStart(new Date(`${act.workStartDate}T00:00:00`)))}
-          >
+          <Button size="small" type="link" onClick={() => setWeek(startOfWork())}>
             К началу работ
           </Button>
         )}
+        <Button size="small" type="link" onClick={() => setWeek(todayDate())}>
+          С сегодняшнего дня
+        </Button>
       </div>
 
       <Table<ActParticipant>

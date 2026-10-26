@@ -16,9 +16,10 @@ public interface EquipmentJpaRepository extends JpaRepository<EquipmentJpaEntity
 
     Optional<EquipmentJpaEntity> findFirstBySerialNumberIgnoreCaseAndDeletedAtIsNull(String serial);
 
-    Optional<EquipmentJpaEntity> findFirstBySiteIdAndGarageNumberIgnoreCaseAndDeletedAtIsNull(UUID siteId, String garage);
+    Optional<EquipmentJpaEntity> findFirstByDepartmentIdAndGarageNumberIgnoreCaseAndDeletedAtIsNull(UUID departmentId,
+                                                                                                    String garage);
 
-    Optional<EquipmentJpaEntity> findFirstByOrganizationIdAndSiteIdIsNullAndGarageNumberIgnoreCaseAndDeletedAtIsNull(
+    Optional<EquipmentJpaEntity> findFirstByOrganizationIdAndDepartmentIdIsNullAndGarageNumberIgnoreCaseAndDeletedAtIsNull(
             UUID organizationId, String garage);
 
     boolean existsByOrganizationIdAndDeletedAtIsNull(UUID organizationId);

@@ -79,10 +79,10 @@ class EquipmentPersistenceAdapter implements EquipmentRepository {
     }
 
     @Override
-    public Optional<Equipment> findByGarageAtSite(UUID organizationId, UUID siteId, String garageNumber) {
-        return (siteId != null
-                ? repository.findFirstBySiteIdAndGarageNumberIgnoreCaseAndDeletedAtIsNull(siteId, garageNumber)
-                : repository.findFirstByOrganizationIdAndSiteIdIsNullAndGarageNumberIgnoreCaseAndDeletedAtIsNull(
+    public Optional<Equipment> findByGarageInDepartment(UUID organizationId, UUID departmentId, String garageNumber) {
+        return (departmentId != null
+                ? repository.findFirstByDepartmentIdAndGarageNumberIgnoreCaseAndDeletedAtIsNull(departmentId, garageNumber)
+                : repository.findFirstByOrganizationIdAndDepartmentIdIsNullAndGarageNumberIgnoreCaseAndDeletedAtIsNull(
                         organizationId, garageNumber))
                 .map(EquipmentPersistenceAdapter::toDomain);
     }

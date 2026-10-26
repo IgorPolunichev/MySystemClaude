@@ -232,32 +232,34 @@ class DirectoryScenariosIT extends PostgresIntegrationTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void vinIsUniqueEverywhereAndGarageNumberPerSite() {
+    void vinIsUniqueEverywhereAndGarageNumberPerDepartment() {
         Organization first = organizations.create(org(null, null, "ООО «Первая»", randomInn()));
         Organization second = organizations.create(org(null, null, "ООО «Вторая»", randomInn()));
-        var north = sites.create(new SiteCommand(null, null, first.id(), "Северная", "С1", null, true));
-        var south = sites.create(new SiteCommand(null, null, first.id(), "Южная", "Ю1", null, true));
+        // участок А с подразделениями Б и В: в разных подразделениях гаражные номера могут совпадать
+        var section = departments.create(new DepartmentCommand(null, null, first.id(), null, "Участок А", null));
+        var b = departments.create(new DepartmentCommand(null, null, first.id(), section.id(), "Подразделение Б", null));
+        var c = departments.create(new DepartmentCommand(null, null, first.id(), section.id(), "Подразделение В", null));
         var type = types.create(new NamedCommand(null, null, "Тип для дублей " + UUID.randomUUID()));
         String vin = "VIN" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        var truck = equipment.create(new EquipmentCommand(null, null, first.id(), null, north.id(), type.id(), "CAT", "777G",
+        var truck = equipment.create(new EquipmentCommand(null, null, first.id(), b.id(), null, type.id(), "CAT", "777G",
                 vin, "12", null, MeterType.HOURS, null, null, null, null));
         // VIN — во всей системе, даже в другой организации
         assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, second.id(), null, null, type.id(),
                 "CAT", "777G", vin.toLowerCase(), null, null, MeterType.HOURS, null, null, null, null)))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("уже есть");
-        // гаражный номер: на другой площадке можно, на той же — нельзя
-        equipment.create(new EquipmentCommand(null, null, first.id(), null, south.id(), type.id(), "Komatsu", "HD785",
+        // гаражный номер: в другом подразделении можно, в том же — нельзя
+        equipment.create(new EquipmentCommand(null, null, first.id(), c.id(), null, type.id(), "Komatsu", "HD785",
                 null, "12", null, MeterType.HOURS, null, null, null, null));
-        assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, first.id(), null, north.id(), type.id(),
+        assertThatThrownBy(() -> equipment.create(new EquipmentCommand(null, null, first.id(), b.id(), null, type.id(),
                 "Volvo", "A40", null, "12", null, MeterType.HOURS, null, null, null, null)))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("Гаражный номер 12");
 
         // проверка до сохранения: найденная по VIN машина и предложение перенести её
-        var found = equipment.duplicates(vin.toLowerCase(), "12", first.id(), north.id(), null);
+        var found = equipment.duplicates(vin.toLowerCase(), "12", first.id(), b.id(), null);
         assertThat(found.bySerial().id()).isEqualTo(truck.id());
         assertThat(found.byGarage().id()).isEqualTo(truck.id());
-        assertThat(equipment.duplicates(vin, "12", first.id(), north.id(), truck.id()).bySerial()).isNull();
+        assertThat(equipment.duplicates(vin, "12", first.id(), b.id(), truck.id()).bySerial()).isNull();
         var moved = equipment.update(truck.id(), new EquipmentCommand(null, truck.version(), second.id(), null, null,
                 type.id(), "CAT", "777G", vin, "12", null, MeterType.HOURS, null, null, null, null));
         assertThat(moved.organizationId()).isEqualTo(second.id());

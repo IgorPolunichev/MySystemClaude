@@ -25,6 +25,7 @@ const equipment = [
 
 describe('офлайн: акт без связи → очередь → синхронизация', () => {
   beforeEach(async () => {
+    (await import('./refs')).invalidateAllRefs();
     await db.delete();
     await db.open();
     await db.refs.bulkPut([

@@ -71,7 +71,7 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
 
   /**
    * Перед сохранением — проверка совпадений (раздел 19.16 SPEC.md): VIN уникален во всей системе — если машина уже
-   * есть, предлагаем изменить её принадлежность; гаражный номер уникален на площадке.
+   * есть, предлагаем изменить её принадлежность; гаражный номер уникален в подразделении.
    */
   const submit = async (values: EquipmentInput) => {
     const data = emptyToNull({ ...values, version: equipment?.version });
@@ -83,7 +83,7 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
           serialNumber: data.serialNumber ?? undefined,
           garageNumber: data.garageNumber ?? undefined,
           organizationId: data.organizationId,
-          siteId: data.siteId ?? undefined,
+          departmentId: data.departmentId ?? undefined,
           excludeId: equipment?.id,
         }),
       );
@@ -108,7 +108,7 @@ export function EquipmentForm({ open, equipment, defaults, onClose }: Props) {
         form.setFields([
           {
             name: 'garageNumber',
-            errors: [`Гаражный номер уже занят на этой площадке: ${title(found.byGarage)}`],
+            errors: [`Гаражный номер уже занят в этом подразделении: ${title(found.byGarage)}`],
           },
         ]);
         return;

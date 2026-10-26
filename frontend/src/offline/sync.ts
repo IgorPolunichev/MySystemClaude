@@ -310,6 +310,7 @@ async function pull(forceRefs: boolean): Promise<void> {
     return sites;
   });
   await setMeta('refsAt', now);
+  (await import('./refs')).invalidateAllRefs();
   await setMeta('lastSyncError', errors.length ? errors.join('; ') : null);
 }
 

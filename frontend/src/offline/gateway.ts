@@ -19,6 +19,9 @@ export async function mustHandleLocally(method: string, path: string, body: unkn
   // Без пропуска (вход по ПИН без связи) — только локально. Иначе сначала пробуем сервер: в очередь — лишь при сбое.
   if (!getAccessToken()) return true;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
+  // Связь недавно пропадала — не ждём сервер на каждом действии: работаем на ПК, связь проверяется в фоне
+  // каждые 15 секунд (синхронизация), и при её появлении запросы снова идут на сервер.
+  if (!network.get().online) return true;
   if (method === 'GET') return false;
   const actId = actIdOf(path, body);
   if (!actId) return false;

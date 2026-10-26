@@ -504,7 +504,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: siteId
+      - name: departmentId
         in: query
         required: false
         schema:
@@ -2157,4 +2157,4 @@ components:
           oneOf:
           - $ref: '#/components/schemas/Equipment'
           - type: 'null'
-          description: Техника с тем же гаражным номером на площадке (или в организации без площадки)
+          description: Техника с тем же гаражным номером в подразделении (или в организации без подразделения)

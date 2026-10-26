@@ -11,6 +11,6 @@ export type FindEquipmentDuplicatesParams = {
 serialNumber?: string;
 garageNumber?: string;
 organizationId?: string;
-siteId?: string;
+departmentId?: string;
 excludeId?: string;
 };

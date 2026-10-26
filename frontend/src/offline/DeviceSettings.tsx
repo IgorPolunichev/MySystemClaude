@@ -77,6 +77,7 @@ export function DeviceSettings({ open, onClose }: { open: boolean; onClose: () =
       onOk: async () => {
         const { clearLocalData } = await import('./db');
         await clearLocalData();
+        (await import('./refs')).invalidateAllRefs();
         message.success('Данные на ПК очищены');
         onClose();
       },
